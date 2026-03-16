@@ -166,6 +166,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
             defaultSrc: ["'self'"],
             scriptSrc: [
                 "'self'",
+                "'wasm-unsafe-eval'",
                 // Allow inline scripts with nonce (Hono will add nonce automatically)
                 "'strict-dynamic'",
                 // Development only - for hot reload
