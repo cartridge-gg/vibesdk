@@ -52,9 +52,15 @@ export function getAllowedOrigins(env: Env): string[] {
         origins.push('http://localhost:3000');
         origins.push('http://localhost:5173');
         origins.push('http://localhost:8787');
+        origins.push('https://localhost:3000');
+        origins.push('https://localhost:5173');
+        origins.push('https://localhost:8787');
         origins.push('http://127.0.0.1:3000');
         origins.push('http://127.0.0.1:5173');
         origins.push('http://127.0.0.1:8787');
+        origins.push('https://127.0.0.1:3000');
+        origins.push('https://127.0.0.1:5173');
+        origins.push('https://127.0.0.1:8787');
     }
     
     return origins;
@@ -179,7 +185,8 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "blob:",
                 "https://avatars.githubusercontent.com", // GitHub avatars
                 "https://lh3.googleusercontent.com", // Google avatars
-                "https://*.cloudflare.com" // Cloudflare assets
+                "https://*.cloudflare.com", // Cloudflare assets
+                "https://*.cartridge.gg"
             ],
             connectSrc: [
                 "'self'",
@@ -189,9 +196,16 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 `wss://${env.CUSTOM_DOMAIN || '*'}`,
                 // API endpoints
                 "https://api.github.com",
-                "https://api.cloudflare.com"
+                "https://api.cloudflare.com",
+                "https://api.cartridge.gg",
+                "https://x.cartridge.gg",
+                "https://profile.cartridge.gg"
             ],
-            frameSrc: ["'none'"],
+            frameSrc: [
+                "'self'",
+                "https://x.cartridge.gg",
+                "https://profile.cartridge.gg"
+            ],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],
             workerSrc: ["'self'", "blob:"],
@@ -220,7 +234,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
         referrerPolicy: 'strict-origin-when-cross-origin',
         
         // Cross-Origin policies
-        crossOriginEmbedderPolicy: 'require-corp',
+        crossOriginEmbedderPolicy: false,
         crossOriginResourcePolicy: 'same-origin',
         crossOriginOpenerPolicy: 'same-origin',
         

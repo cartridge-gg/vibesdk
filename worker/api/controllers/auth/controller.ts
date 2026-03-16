@@ -8,9 +8,8 @@ import { UserService } from '../../../database/services/UserService';
 import { ApiKeyService } from '../../../database/services/ApiKeyService';
 import { generateApiKey, sha256Hash } from '../../../utils/cryptoUtils';
 import { 
-    loginSchema, 
-    registerSchema, 
-    oauthProviderSchema
+    controllerChallengeSchema,
+    controllerLoginSchema,
 } from './authSchemas';
 import { SecurityError } from 'shared/types/errors';
 import {
@@ -26,126 +25,117 @@ import { authMiddleware } from '../../../middleware/auth/auth';
 import { CsrfService } from '../../../services/csrf/CsrfService';
 import { BaseController } from '../baseController';
 import { createLogger } from '../../../logger';
+import { ControllerAuthService } from '../../../services/auth/ControllerAuthService';
 /**
  * Authentication Controller
  */
 export class AuthController extends BaseController {
     static logger = createLogger('AuthController');
-    /**
-     * Check if OAuth providers are configured
-     */
-    static hasOAuthProviders(env: Env): boolean {
-        return (!!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET) || 
-               (!!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET);
-    }
+
+    private static readonly LEGACY_AUTH_DISABLED_MESSAGE =
+        'Legacy email and OAuth login are disabled. Please sign in with Cartridge Controller.';
     
     /**
      * Register a new user
      * POST /api/auth/register
      */
-    static async register(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
-        try {
-            // Check if OAuth providers are configured - if yes, block email/password registration
-            if (AuthController.hasOAuthProviders(env)) {
-                return AuthController.createErrorResponse(
-                    'Email/password registration is not available when OAuth providers are configured. Please use OAuth login instead.',
-                    403
-                );
-            }
-
-            const bodyResult = await AuthController.parseJsonBody(request);
-            if (!bodyResult.success) {
-                return bodyResult.response!;
-            }
-
-            const validatedData = registerSchema.parse(bodyResult.data);
-
-            if (env.ALLOWED_EMAIL && validatedData.email !== env.ALLOWED_EMAIL) {
-                return AuthController.createErrorResponse(
-                    'Email Whitelisting is enabled. Please use the allowed email to register.',
-                    403
-                );
-            }
-            
-            const authService = new AuthService(env);
-            const result = await authService.register(validatedData, request);
-            
-            const response = AuthController.createSuccessResponse(
-                formatAuthResponse(result.user, result.sessionId, result.expiresAt)
-            );
-            
-            setSecureAuthCookies(response, {
-                accessToken: result.accessToken,
-                accessTokenExpiry: SessionService.config.sessionTTL
-            });
-            
-            // Rotate CSRF token on successful registration if configured
-            if (CsrfService.defaults.rotateOnAuth) {
-                CsrfService.rotateToken(response);
-            }
-            
-            return response;
-        } catch (error) {
-            if (error instanceof SecurityError) {
-                return AuthController.createErrorResponse(error.message, error.statusCode);
-            }
-            
-            return AuthController.handleError(error, 'register user');
-        }
+    static async register(_request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        return AuthController.createErrorResponse(
+            AuthController.LEGACY_AUTH_DISABLED_MESSAGE,
+            403
+        );
     }
     
     /**
      * Login with email and password
      * POST /api/auth/login
      */
-    static async login(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
-        try {
-            // Check if OAuth providers are configured - if yes, block email/password login
-            if (AuthController.hasOAuthProviders(env)) {
-                return AuthController.createErrorResponse(
-                    'Email/password login is not available when OAuth providers are configured. Please use OAuth login instead.',
-                    403
-                );
-            }
+    static async login(_request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        return AuthController.createErrorResponse(
+            AuthController.LEGACY_AUTH_DISABLED_MESSAGE,
+            403
+        );
+    }
 
+    /**
+     * Create a one-time Controller login challenge
+     * POST /api/auth/controller/challenge
+     */
+    static async getControllerChallenge(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        try {
             const bodyResult = await AuthController.parseJsonBody(request);
             if (!bodyResult.success) {
                 return bodyResult.response!;
             }
 
-            const validatedData = loginSchema.parse(bodyResult.data);
+            const validatedData = controllerChallengeSchema.parse(bodyResult.data);
+            const challenge = await ControllerAuthService.createChallenge({
+                address: validatedData.address,
+                chainId: validatedData.chainId,
+                request,
+                env,
+            });
 
-            if (env.ALLOWED_EMAIL && validatedData.email !== env.ALLOWED_EMAIL) {
-                return AuthController.createErrorResponse(
-                    'Email Whitelisting is enabled. Please use the allowed email to login.',
-                    403
-                );
+            return AuthController.createSuccessResponse(challenge);
+        } catch (error) {
+            if (error instanceof SecurityError) {
+                return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
+
+            return AuthController.handleError(error, 'create Controller challenge');
+        }
+    }
+
+    /**
+     * Verify a signed Controller challenge and create an authenticated session
+     * POST /api/auth/controller/login
+     */
+    static async loginWithController(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        try {
+            const bodyResult = await AuthController.parseJsonBody(request);
+            if (!bodyResult.success) {
+                return bodyResult.response!;
+            }
+
+            const validatedData = controllerLoginSchema.parse(bodyResult.data);
+
+            await ControllerAuthService.verifyChallenge({
+                address: validatedData.address,
+                chainId: validatedData.chainId,
+                challengeToken: validatedData.challengeToken,
+                signature: validatedData.signature,
+                env,
+            });
+
             const authService = new AuthService(env);
-            const result = await authService.login(validatedData, request);
-            
+            const result = await authService.loginWithController(
+                {
+                    address: validatedData.address,
+                    username: validatedData.username,
+                },
+                request
+            );
+
             const response = AuthController.createSuccessResponse(
                 formatAuthResponse(result.user, result.sessionId, result.expiresAt)
             );
-            
+
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
-                accessTokenExpiry: SessionService.config.sessionTTL
+                accessTokenExpiry: SessionService.config.sessionTTL,
             });
-            
-            // Rotate CSRF token on successful login if configured
+
             if (CsrfService.defaults.rotateOnAuth) {
                 CsrfService.rotateToken(response);
             }
-            
+
             return response;
         } catch (error) {
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
-            return AuthController.handleError(error, 'login user');
+
+            return AuthController.handleError(error, 'login with Cartridge Controller');
         }
     }
     
@@ -274,86 +264,22 @@ export class AuthController extends BaseController {
      * Initiate OAuth flow
      * GET /api/auth/oauth/:provider
      */
-    static async initiateOAuth(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
-        try {
-            const validatedProvider = oauthProviderSchema.parse(routeContext.pathParams.provider);
-            
-            // Get intended redirect URL from query parameter
-            const intendedRedirectUrl = routeContext.queryParams.get('redirect_url') || undefined;
-            
-            const authService = new AuthService(env);
-            const authUrl = await authService.getOAuthAuthorizationUrl(
-                validatedProvider,
-                request,
-                intendedRedirectUrl
-            );
-            
-            return Response.redirect(authUrl, 302);
-        } catch (error) {
-            this.logger.error('OAuth initiation failed', error);
-            
-            if (error instanceof SecurityError) {
-                return AuthController.createErrorResponse(error.message, error.statusCode);
-            }
-            
-            return AuthController.handleError(error, 'initiate OAuth');
-        }
+    static async initiateOAuth(_request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        return AuthController.createErrorResponse(
+            AuthController.LEGACY_AUTH_DISABLED_MESSAGE,
+            403
+        );
     }
     
     /**
      * Handle OAuth callback
      * GET /api/auth/callback/:provider
      */
-    static async handleOAuthCallback(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
-        try {
-            const validatedProvider = oauthProviderSchema.parse(routeContext.pathParams.provider);
-            
-            const code = routeContext.queryParams.get('code');
-            const state = routeContext.queryParams.get('state');
-            const error = routeContext.queryParams.get('error');
-            
-            if (error) {
-                this.logger.error('OAuth provider returned error', { provider: validatedProvider, error });
-                const baseUrl = new URL(request.url).origin;
-                return Response.redirect(`${baseUrl}/?error=oauth_failed`, 302);
-            }
-            
-            if (!code || !state) {
-                const baseUrl = new URL(request.url).origin;
-                return Response.redirect(`${baseUrl}/?error=missing_params`, 302);
-            }
-            
-            const authService = new AuthService(env);
-            const result = await authService.handleOAuthCallback(
-                validatedProvider,
-                code,
-                state,
-                request
-            );
-            
-            const baseUrl = new URL(request.url).origin;
-            
-            // Use stored redirect URL or default to home page
-            const redirectLocation = result.redirectUrl || `${baseUrl}/`;
-            
-            // Create redirect response with secure auth cookies
-            const response = new Response(null, {
-                status: 302,
-                headers: {
-                    'Location': redirectLocation
-                }
-            });
-            
-            setSecureAuthCookies(response, {
-                accessToken: result.accessToken,
-            });
-            
-            return response;
-        } catch (error) {
-            this.logger.error('OAuth callback failed', error);
-            const baseUrl = new URL(request.url).origin;
-            return Response.redirect(`${baseUrl}/?error=auth_failed`, 302);
-        }
+    static async handleOAuthCallback(_request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        return AuthController.createErrorResponse(
+            AuthController.LEGACY_AUTH_DISABLED_MESSAGE,
+            403
+        );
     }
 
     /**
@@ -639,71 +565,22 @@ export class AuthController extends BaseController {
      * Verify email with OTP
      * POST /api/auth/verify-email
      */
-    static async verifyEmail(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
-        try {
-            const bodyResult = await AuthController.parseJsonBody<{ email: string; otp: string }>(request);
-            if (!bodyResult.success) {
-                return bodyResult.response!;
-            }
-
-            const { email, otp } = bodyResult.data!;
-
-            if (!email || !otp) {
-                return AuthController.createErrorResponse('Email and OTP are required', 400);
-            }
-
-            const authService = new AuthService(env);
-            const result = await authService.verifyEmailWithOtp(email, otp, request);
-            
-            const response = AuthController.createSuccessResponse(
-                formatAuthResponse(result.user, result.sessionId, result.expiresAt)
-            );
-            
-            setSecureAuthCookies(response, {
-                accessToken: result.accessToken,
-                accessTokenExpiry: SessionService.config.sessionTTL
-            });
-            
-            return response;
-        } catch (error) {
-            if (error instanceof SecurityError) {
-                return AuthController.createErrorResponse(error.message, error.statusCode);
-            }
-            
-            return AuthController.handleError(error, 'verify email');
-        }
+    static async verifyEmail(_request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        return AuthController.createErrorResponse(
+            AuthController.LEGACY_AUTH_DISABLED_MESSAGE,
+            403
+        );
     }
 
     /**
      * Resend verification OTP
      * POST /api/auth/resend-verification
      */
-    static async resendVerificationOtp(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
-        try {
-            const bodyResult = await AuthController.parseJsonBody<{ email: string }>(request);
-            if (!bodyResult.success) {
-                return bodyResult.response!;
-            }
-
-            const { email } = bodyResult.data!;
-
-            if (!email) {
-                return AuthController.createErrorResponse('Email is required', 400);
-            }
-
-            const authService = new AuthService(env);
-            await authService.resendVerificationOtp(email);
-            
-            return AuthController.createSuccessResponse({
-                message: 'Verification code sent successfully'
-            });
-        } catch (error) {
-            if (error instanceof SecurityError) {
-                return AuthController.createErrorResponse(error.message, error.statusCode);
-            }
-            
-            return AuthController.handleError(error, 'resend verification OTP');
-        }
+    static async resendVerificationOtp(_request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        return AuthController.createErrorResponse(
+            AuthController.LEGACY_AUTH_DISABLED_MESSAGE,
+            403
+        );
     }
 
     /**
@@ -736,15 +613,16 @@ export class AuthController extends BaseController {
      */
     static async getAuthProviders(
         request: Request,
-        env: Env,
+        _env: Env,
         _ctx: ExecutionContext,
         _context: RouteContext
     ): Promise<Response> {
         try {
             const providers = {
-                google: !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET,
-                github: !!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET,
-                email: true
+                controller: true,
+                google: false,
+                github: false,
+                email: false
             };
             
             // Include CSRF token with provider info
@@ -752,8 +630,9 @@ export class AuthController extends BaseController {
             
             const response = AuthController.createSuccessResponse({
                 providers,
-                hasOAuth: providers.google || providers.github,
-                requiresEmailAuth: !providers.google && !providers.github,
+                hasControllerAuth: true,
+                hasOAuth: false,
+                requiresEmailAuth: false,
                 csrfToken,
                 csrfExpiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)
             });

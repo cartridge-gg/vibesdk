@@ -48,6 +48,7 @@ import type{
 	RegisterResponseData,
 	ProfileResponseData,
 	AuthProvidersResponseData,
+	ControllerChallengeResponseData,
 	CsrfTokenResponseData,
 	OAuthProvider,
 	CodeGenArgs,
@@ -281,6 +282,8 @@ class ApiClient {
 		if (endpoint === '/api/auth/profile') return false;
 		if (endpoint === '/api/auth/providers') return false;
 		if (endpoint === '/api/auth/sessions') return false;
+		if (endpoint === '/api/auth/controller/challenge') return false;
+		if (endpoint === '/api/auth/controller/login') return false;
 
 		return true;
 	}
@@ -1089,6 +1092,38 @@ class ApiClient {
 	// ===============================
 	// Authentication API Methods
 	// ===============================
+
+	/**
+	 * Create a signed Controller login challenge
+	 */
+	async getControllerChallenge(data: {
+		address: string;
+		chainId: 'SN_MAIN' | 'SN_SEPOLIA';
+	}): Promise<ApiResponse<ControllerChallengeResponseData>> {
+		return this.request<ControllerChallengeResponseData>(
+			'/api/auth/controller/challenge',
+			{
+				method: 'POST',
+				body: data,
+			},
+		);
+	}
+
+	/**
+	 * Exchange a signed Controller login challenge for an authenticated session
+	 */
+	async loginWithController(data: {
+		address: string;
+		chainId: 'SN_MAIN' | 'SN_SEPOLIA';
+		challengeToken: string;
+		signature: string[];
+		username?: string;
+	}): Promise<ApiResponse<LoginResponseData>> {
+		return this.request<LoginResponseData>('/api/auth/controller/login', {
+			method: 'POST',
+			body: data,
+		});
+	}
 
 	/**
 	 * Login with email and password

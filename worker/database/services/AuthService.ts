@@ -27,6 +27,7 @@ import { createLogger } from '../../logger';
 import { validateEmail, validatePassword } from '../../utils/validationUtils';
 import { extractRequestMetadata } from '../../utils/authUtils';
 import { BaseService } from './BaseService';
+import { normalizeControllerAddress } from '../../services/auth/ControllerAuthService';
 
 const logger = createLogger('AuthService');
 
@@ -45,6 +46,11 @@ export interface RegistrationData {
     email: string;
     password: string;
     name?: string;
+}
+
+export interface ControllerLoginData {
+	address: string;
+	username?: string;
 }
 
 
@@ -240,6 +246,52 @@ export class AuthService extends BaseService {
             throw new SecurityError(
                 SecurityErrorType.UNAUTHORIZED,
                 'Login failed',
+                500
+            );
+        }
+    }
+
+    async loginWithController(
+        data: ControllerLoginData,
+        request: Request
+    ): Promise<AuthResult> {
+        const normalizedAddress = normalizeControllerAddress(data.address);
+        const syntheticEmail = this.getControllerEmail(normalizedAddress);
+
+        try {
+            const user = await this.findOrCreateControllerUser(
+                normalizedAddress,
+                data.username
+            );
+            const { accessToken, session } = await this.sessionService.createSession(
+                user.id,
+                request
+            );
+
+            await this.logAuthAttempt(syntheticEmail, 'controller', true, request);
+
+            logger.info('Controller login successful', {
+                userId: user.id,
+                address: normalizedAddress,
+            });
+
+            return {
+                user: mapUserResponse(user),
+                accessToken,
+                sessionId: session.sessionId,
+                expiresAt: session.expiresAt,
+            };
+        } catch (error) {
+            await this.logAuthAttempt(syntheticEmail, 'controller', false, request);
+
+            if (error instanceof SecurityError) {
+                throw error;
+            }
+
+            logger.error('Controller login error', error);
+            throw new SecurityError(
+                SecurityErrorType.UNAUTHORIZED,
+                'Controller login failed',
                 500
             );
         }
@@ -508,6 +560,105 @@ export class AuthService extends BaseService {
         
         return user!;
     }
+
+    private getControllerEmail(address: string): string {
+        return `controller+${address.replace(/^0x/, '')}@cartridge.local`;
+    }
+
+    private getControllerDisplayName(address: string, username?: string): string {
+        if (username && username.trim().length > 0) {
+            return username.trim();
+        }
+
+        return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+
+    private async findOrCreateControllerUser(
+        address: string,
+        username?: string
+    ): Promise<schema.User> {
+        const syntheticEmail = this.getControllerEmail(address);
+        const displayName = this.getControllerDisplayName(address, username);
+        const now = new Date();
+
+        let user = await this.database
+            .select()
+            .from(schema.users)
+            .where(
+                and(
+                    eq(schema.users.provider, 'controller'),
+                    eq(schema.users.providerId, address)
+                )
+            )
+            .get();
+
+        if (!user) {
+            user = await this.database
+                .select()
+                .from(schema.users)
+                .where(eq(schema.users.email, syntheticEmail))
+                .get();
+        }
+
+        if (!user) {
+            const userId = generateId();
+
+            await this.database.insert(schema.users).values({
+                id: userId,
+                email: syntheticEmail,
+                displayName,
+                emailVerified: true,
+                provider: 'controller',
+                providerId: address,
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            const createdUser = await this.database
+                .select()
+                .from(schema.users)
+                .where(eq(schema.users.id, userId))
+                .get();
+
+            if (!createdUser) {
+                throw new SecurityError(
+                    SecurityErrorType.INVALID_INPUT,
+                    'Failed to retrieve Controller user',
+                    500
+                );
+            }
+
+            return createdUser;
+        }
+
+        await this.database
+            .update(schema.users)
+            .set({
+                email: syntheticEmail,
+                displayName,
+                emailVerified: true,
+                provider: 'controller',
+                providerId: address,
+                updatedAt: now,
+            })
+            .where(eq(schema.users.id, user.id));
+
+        const refreshedUser = await this.database
+            .select()
+            .from(schema.users)
+            .where(eq(schema.users.id, user.id))
+            .get();
+
+        if (!refreshedUser) {
+            throw new SecurityError(
+                SecurityErrorType.INVALID_INPUT,
+                'Failed to refresh Controller user',
+                500
+            );
+        }
+
+        return refreshedUser;
+    }
     
     /**
      * Log authentication attempt
@@ -523,7 +674,7 @@ export class AuthService extends BaseService {
             
             await this.database.insert(schema.authAttempts).values({
                 identifier: identifier.toLowerCase(),
-                attemptType: attemptType as 'login' | 'register' | 'oauth_google' | 'oauth_github' | 'refresh' | 'reset_password',
+                attemptType: attemptType as 'login' | 'register' | 'oauth_google' | 'oauth_github' | 'controller' | 'refresh' | 'reset_password',
                 success: success,
                 ipAddress: requestMetadata.ipAddress
             });

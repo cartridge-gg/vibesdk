@@ -22,7 +22,7 @@ export const users = sqliteTable('users', {
     bio: text('bio'),
     
     // OAuth and Authentication
-    provider: text('provider').notNull(), // 'github', 'google', 'email'
+    provider: text('provider').notNull(), // 'github', 'google', 'email', 'controller'
     providerId: text('provider_id').notNull(),
     emailVerified: integer('email_verified', { mode: 'boolean' }).default(false),
     passwordHash: text('password_hash'), // Only for provider: 'email'
@@ -361,7 +361,7 @@ export const authAttempts = sqliteTable('auth_attempts', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     identifier: text('identifier').notNull(),
     attemptType: text('attempt_type', { 
-        enum: ['login', 'register', 'oauth_google', 'oauth_github', 'refresh', 'reset_password'] 
+        enum: ['login', 'register', 'oauth_google', 'oauth_github', 'controller', 'refresh', 'reset_password'] 
     }).notNull(),
     success: integer('success', { mode: 'boolean' }).notNull(),
     ipAddress: text('ip_address').notNull(),

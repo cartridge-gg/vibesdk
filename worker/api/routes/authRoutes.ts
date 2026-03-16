@@ -19,6 +19,8 @@ export function setupAuthRoutes(app: Hono<AppEnv>): void {
     authRouter.get('/providers', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.getAuthProviders));
     authRouter.post('/register', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.register));
     authRouter.post('/login', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.login));
+    authRouter.post('/controller/challenge', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.getControllerChallenge));
+    authRouter.post('/controller/login', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.loginWithController));
     authRouter.post('/verify-email', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.verifyEmail));
     authRouter.post('/resend-verification', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.resendVerificationOtp));
     authRouter.get('/check', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.checkAuth));

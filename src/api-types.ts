@@ -3,7 +3,7 @@
  * This file serves as the single source of truth for frontend-worker API communication
  */
 import { SessionResponse } from 'worker/utils/authUtils';
-import { AuthUser } from './api-types';
+import type { AuthUser } from 'worker/types/auth-types';
 
 export type { SecretTemplate } from 'worker/types/secretsTemplates';
 
@@ -264,14 +264,22 @@ export type ProfileResponseData = {
 
 export interface AuthProvidersResponseData {
   providers: {
+    controller: boolean;
     google: boolean;
     github: boolean;
     email: boolean;
   };
+  hasControllerAuth: boolean;
   hasOAuth: boolean;
   requiresEmailAuth: boolean;
   csrfToken?: string;
   csrfExpiresIn?: number;
+}
+
+export interface ControllerChallengeResponseData {
+  challengeToken: string;
+  expiresAt: string;
+  typedData: unknown;
 }
 
 export interface CsrfTokenResponseData {

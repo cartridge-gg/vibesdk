@@ -3,7 +3,7 @@
  * Provides OAuth + Email/Password authentication with enhanced UI
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LogIn, LogOut, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,11 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
+import {
+	getAuthUserInitials,
+	getAuthUserPrimaryLabel,
+	getAuthUserSecondaryLabel,
+} from '@/utils/auth-user';
 
 interface AuthButtonProps {
 	className?: string;
@@ -32,15 +37,19 @@ export function AuthButton({ className }: AuthButtonProps) {
 		isAuthenticated,
 		isLoading,
 		error,
-		login, // OAuth method
-		loginWithEmail,
-		register,
+		login,
 		logout,
 		clearError,
 	} = useAuth();
 
 	const navigate = useNavigate();
 	const [showLoginModal, setShowLoginModal] = useState(false);
+
+	useEffect(() => {
+		if (isAuthenticated) {
+			setShowLoginModal(false);
+		}
+	}, [isAuthenticated]);
 
 	if (isLoading) {
 		return <Skeleton className="w-10 h-10 rounded-full" />;
@@ -62,26 +71,8 @@ export function AuthButton({ className }: AuthButtonProps) {
 				<LoginModal
 					isOpen={showLoginModal}
 					onClose={() => setShowLoginModal(false)}
-					onLogin={(provider) => {
-						// For backward compatibility with original login interface
-						login(provider);
-						setShowLoginModal(false);
-					}}
-					onEmailLogin={async (credentials) => {
-						await loginWithEmail(credentials);
-						if (!error) {
-							setShowLoginModal(false);
-						}
-					}}
-					onOAuthLogin={(provider) => {
-						login(provider);
-						setShowLoginModal(false);
-					}}
-					onRegister={async (data) => {
-						await register(data);
-						if (!error) {
-							setShowLoginModal(false);
-						}
+					onLogin={async () => {
+						await login();
 					}}
 					error={error}
 					onClearError={clearError}
@@ -89,19 +80,6 @@ export function AuthButton({ className }: AuthButtonProps) {
 			</>
 		);
 	}
-
-	// Get user initials for avatar fallback
-	const getInitials = () => {
-		if (user.displayName) {
-			return user.displayName
-				.split(' ')
-				.map((n) => n[0])
-				.join('')
-				.toUpperCase()
-				.slice(0, 2);
-		}
-		return user.email.charAt(0).toUpperCase();
-	};
 
 	return (
 		<DropdownMenu>
@@ -114,10 +92,10 @@ export function AuthButton({ className }: AuthButtonProps) {
 					<Avatar className="h-8 w-8">
 						<AvatarImage
 							src={user.avatarUrl}
-							alt={user.displayName || user.email}
+							alt={getAuthUserPrimaryLabel(user)}
 						/>
 						<AvatarFallback className="bg-text-secondary/10 text-text-primary font-semibold">
-							{getInitials()}
+							{getAuthUserInitials(user)}
 						</AvatarFallback>
 					</Avatar>
 					{user.emailVerified && (
@@ -139,20 +117,20 @@ export function AuthButton({ className }: AuthButtonProps) {
 								<Avatar className="h-12 w-12">
 									<AvatarImage
 										src={user.avatarUrl}
-										alt={user.displayName || user.email}
+										alt={getAuthUserPrimaryLabel(user)}
 									/>
 									<AvatarFallback className="bg-text-secondary/10 text-text-primary font-semibold text-lg">
-										{getInitials()}
+										{getAuthUserInitials(user)}
 									</AvatarFallback>
 								</Avatar>
 								<div className="flex flex-col gap-1 flex-1 text-text-primary">
 									<div className="flex items-center gap-2">
 										<span className="text-sm font-semibold">
-											{user.displayName || 'User'}
+											{getAuthUserPrimaryLabel(user)}
 										</span>
 									</div>
 									<span className="text-xs text-text-tertiary">
-										{user.email}
+										{getAuthUserSecondaryLabel(user)}
 									</span>
 								</div>
 							</div>

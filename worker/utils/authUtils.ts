@@ -270,6 +270,10 @@ export function mapUserResponse(
 		displayName: user.displayName || undefined,
 		username: user.username || undefined,
 		avatarUrl: user.avatarUrl || undefined,
+		walletAddress:
+			user.provider === 'controller' && 'providerId' in user
+				? user.providerId || undefined
+				: undefined,
 		bio: user.bio || undefined,
 		timezone: user.timezone || undefined,
 		provider: user.provider || undefined,
@@ -324,4 +328,3 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 		return null;
 	}
 }
-

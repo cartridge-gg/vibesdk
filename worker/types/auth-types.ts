@@ -18,12 +18,13 @@ export interface AuthUser {
 	displayName?: string;
 	username?: string;
 	avatarUrl?: string;
-    bio?: string;
-    timezone?: string;
-    provider?: string;
-    emailVerified?: boolean;
-    createdAt?: Date;
-    isAnonymous?: boolean;
+	walletAddress?: string;
+	bio?: string;
+	timezone?: string;
+	provider?: string;
+	emailVerified?: boolean;
+	createdAt?: Date;
+	isAnonymous?: boolean;
 }
 
 /**

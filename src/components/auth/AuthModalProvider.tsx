@@ -33,7 +33,7 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
   const [modalContext, setModalContext] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<(() => void) | undefined>();
   const [intendedUrl, setIntendedUrlState] = useState<string | undefined>();
-  const { login, loginWithEmail, register, error, clearError, isAuthenticated } = useAuth();
+  const { login, error, clearError, isAuthenticated } = useAuth();
 
   const showAuthModal = useCallback((context?: string, onSuccess?: () => void, intendedUrl?: string) => {
     setModalContext(context);
@@ -63,10 +63,9 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     }
   }, [isAuthenticated, pendingAction, isAuthModalOpen, hideAuthModal]);
 
-  const handleLogin = useCallback((provider: 'google' | 'github', redirectUrl?: string) => {
-    // Use the intended URL if available, otherwise use the provided redirect URL
+  const handleLogin = useCallback(async (redirectUrl?: string) => {
     const finalRedirectUrl = intendedUrl || redirectUrl;
-    login(provider, finalRedirectUrl);
+    await login(finalRedirectUrl);
   }, [login, intendedUrl]);
 
   // Set up global auth modal trigger for API client
@@ -86,10 +85,7 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
       <LoginModal
         isOpen={isAuthModalOpen}
         onClose={hideAuthModal}
-        onLogin={login} // Fallback for backward compatibility
-        onOAuthLogin={handleLogin}
-        onEmailLogin={loginWithEmail}
-        onRegister={register}
+        onLogin={() => handleLogin()}
         error={error}
         onClearError={clearError}
         actionContext={modalContext}

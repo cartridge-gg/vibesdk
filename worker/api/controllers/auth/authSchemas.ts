@@ -91,3 +91,22 @@ export type VerifyEmailRequest = z.infer<typeof verifyEmailSchema>;
 export const oauthProviderSchema = z.enum(['google', 'github']);
 
 export type OAuthProviderParam = z.infer<typeof oauthProviderSchema>;
+
+export const controllerChallengeSchema = z.object({
+	address: z.string().min(1, 'Controller address is required'),
+	chainId: z.enum(['SN_MAIN', 'SN_SEPOLIA']),
+});
+
+export type ControllerChallengeRequest = z.infer<
+	typeof controllerChallengeSchema
+>;
+
+export const controllerLoginSchema = controllerChallengeSchema.extend({
+	challengeToken: z.string().min(1, 'Challenge token is required'),
+	signature: z
+		.array(z.string().min(1, 'Signature value is required'))
+		.min(1, 'Signature is required'),
+	username: z.string().trim().min(1).max(100).optional(),
+});
+
+export type ControllerLoginRequest = z.infer<typeof controllerLoginSchema>;

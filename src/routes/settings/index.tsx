@@ -55,6 +55,10 @@ import {
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import {
+	getAuthProviderLabel,
+	getAuthUserSecondaryLabel,
+} from '@/utils/auth-user';
 // import { SecretsManager } from '@/components/vault';
 
 export default function SettingsPage() {
@@ -845,18 +849,16 @@ export default function SettingsPage() {
 									Connected Accounts
 								</h4>
 								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="h-5 w-5 rounded-full bg-bg-3 flex items-center justify-center">
-											{user?.provider === 'google'
-												? '🇬'
-												: '🐙'}
+								<div className="flex items-center gap-3">
+									<div className="h-5 w-5 rounded-full bg-bg-3 flex items-center justify-center">
+											{user?.provider === 'controller' ? 'C' : '•'}
 										</div>
 										<div>
 											<p className="text-sm font-medium capitalize">
-												{user?.provider}
+												{getAuthProviderLabel(user?.provider)}
 											</p>
 											<p className="text-sm text-text-tertiary">
-												{user?.email}
+												{getAuthUserSecondaryLabel(user)}
 											</p>
 										</div>
 									</div>
