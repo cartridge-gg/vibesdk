@@ -9,6 +9,8 @@ import { cloudflare } from '@cloudflare/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
+const localAppDomain = process.env.LOCAL_APP_DOMAIN || 'vibe.localtest.me';
+
 export default defineConfig({
 	optimizeDeps: {
 		exclude: ['format', 'editor.all'],
@@ -32,6 +34,19 @@ export default defineConfig({
 		cloudflare({
 			configPath: 'wrangler.jsonc',
 			remoteBindings: process.env.CLOUDFLARE_REMOTE_BINDINGS === 'true',
+			config: (config) => {
+				if (process.env.DEV_MODE !== 'true') return;
+
+				return {
+					vars: {
+						...(config.vars ?? {}),
+						CUSTOM_DOMAIN: config.vars?.CUSTOM_DOMAIN || localAppDomain,
+						CUSTOM_PREVIEW_DOMAIN:
+							config.vars?.CUSTOM_PREVIEW_DOMAIN || localAppDomain,
+						ENVIRONMENT: config.vars?.ENVIRONMENT || 'local',
+					},
+				};
+			},
 		}),
 		tailwindcss(),
 		// sentryVitePlugin({
