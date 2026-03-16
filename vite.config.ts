@@ -31,6 +31,7 @@ export default defineConfig({
 		wasm(),
 		cloudflare({
 			configPath: 'wrangler.jsonc',
+			remoteBindings: process.env.CLOUDFLARE_REMOTE_BINDINGS === 'true',
 		}),
 		tailwindcss(),
 		// sentryVitePlugin({
