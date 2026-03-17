@@ -25,3 +25,10 @@
 ## Key Patterns
 - **Add API endpoint:** types in `src/api-types.ts` -> `src/lib/api-client.ts` -> service in `worker/database/services/` -> controller in `worker/api/controllers/` -> route in `worker/api/routes/`
 - **Add LLM tool:** create in `worker/agents/tools/toolkit/` -> register in `worker/agents/tools/customTools.ts`
+
+## Sandbox & Builder
+- **Sandbox base tools/binaries:** `SandboxDockerfile`
+- **Sandbox setup/runtime install flow:** `worker/services/sandbox/sandboxSdkClient.ts`
+- **Main builder system prompt:** `worker/agents/operations/prompts/agenticBuilderPrompts.ts`
+- **Main builder tool list:** `worker/agents/operations/AgenticProjectBuilder.ts`
+- **Conversation/debug tool registry:** `worker/agents/tools/customTools.ts`
