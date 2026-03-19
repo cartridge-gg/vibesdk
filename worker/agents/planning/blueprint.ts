@@ -1,9 +1,29 @@
-import { TemplateDetails, TemplateFileSchema } from '../../services/sandbox/sandboxTypes'; // Import the type
-import { STRATEGIES, PROMPT_UTILS, generalSystemPromptBuilder } from '../prompts';
+import {
+	TemplateDetails,
+	TemplateFileSchema,
+} from '../../services/sandbox/sandboxTypes'; // Import the type
+import {
+	STRATEGIES,
+	PROMPT_UTILS,
+	generalSystemPromptBuilder,
+} from '../prompts';
 import { executeInference } from '../inferutils/infer';
-import { PhasicBlueprint, LitePhasicBlueprint, AgenticBlueprint, PhasicBlueprintSchema, LitePhasicBlueprintSchema, AgenticBlueprintSchema, TemplateSelection, Blueprint } from '../schemas';
+import {
+	PhasicBlueprint,
+	LitePhasicBlueprint,
+	AgenticBlueprint,
+	PhasicBlueprintSchema,
+	LitePhasicBlueprintSchema,
+	AgenticBlueprintSchema,
+	TemplateSelection,
+	Blueprint,
+} from '../schemas';
 import { createLogger } from '../../logger';
-import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
+import {
+	createSystemMessage,
+	createUserMessage,
+	createMultiModalUserMessage,
+} from '../inferutils/common';
 import { InferenceContext } from '../inferutils/config.types';
 import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import z from 'zod';
@@ -11,22 +31,28 @@ import { imagesToBase64 } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 import { ProjectType } from '../core/types';
+import {
+	GAME_PLATFORM_SYSTEM_DIRECTIVE,
+	appendGamePlatformQuery,
+} from '../utils/gamePlatform';
 
 const logger = createLogger('Blueprint');
 
 const SIMPLE_SYSTEM_PROMPT = `<ROLE>
-    You are a Senior Software Architect at Cloudflare with expertise in rapid prototyping and modern web development.
-    Your expertise lies in creating concise, actionable blueprints for building web applications quickly and efficiently.
+    You are a Senior Game Architect at Cloudflare with expertise in rapid prototyping and modern browser game development.
+    Your expertise lies in creating concise, actionable blueprints for building web games quickly and efficiently.
 </ROLE>
 
 <TASK>
-    Create a high-level blueprint for a web application based on the client's request.
+    Create a high-level blueprint for a web game based on the client's request.
     The project will be built on Cloudflare Workers and will start from a provided template.
     Focus on a clear, concise design that captures the core requirements without over-engineering.
     Enhance the user's request thoughtfully - be creative but practical.
 </TASK>
 
 <GOAL>
+    ${GAME_PLATFORM_SYSTEM_DIRECTIVE}
+
     Design the product described by the client and provide:
     - A professional, memorable project name
     - A brief but clear description of what the application does
@@ -82,12 +108,12 @@ Preinstalled dependencies:
 </STARTING TEMPLATE>`;
 
 const PHASIC_SYSTEM_PROMPT = `<ROLE>
-    You are a meticulous and forward-thinking Senior Software Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence. 
-    Your expertise lies in designing clear, concise, comprehensive, and unambiguous blueprints (PRDs) for building production-ready scalable and visually stunning, piece-of-art web applications that users will love to use, using Cloudflare workers and durable objects.
+    You are a meticulous and forward-thinking Senior Game Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence. 
+    Your expertise lies in designing clear, concise, comprehensive, and unambiguous blueprints (PRDs) for building production-ready scalable and visually stunning browser games that players will love to return to, using Cloudflare workers and durable objects.
 </ROLE>
 
 <TASK>
-    You are tasked with creating a detailed yet concise, information-dense blueprint (PRD) for a web application project for our client: designing and outlining the frontend UI/UX (user interface, user experience) and core functionality of the application with exceptional focus on visual appeal, user experience, product quality, completion and polish.
+    You are tasked with creating a detailed yet concise, information-dense blueprint (PRD) for a browser game project for our client: designing and outlining the frontend UI/UX (user interface, user experience) and core functionality of the experience with exceptional focus on visual appeal, user experience, product quality, completion and polish.
     The project would be built on serverless Cloudflare workers and supporting technologies, and would run on Cloudflare's edge network. The project would be seeded with a starting template.
     Focus on a clear and comprehensive design that prioritizes STUNNING VISUAL DESIGN, polish and depth, be to the point, explicit and detailed in your response, and adhere to our development process. 
     Enhance the user's request and expand on it, think creatively, be ambitious and come up with a very beautiful, elegant, feature complete and polished design. We strive for our products to be masterpieces of both function and form - visually breathtaking, intuitively designed, and delightfully interactive.
@@ -97,8 +123,10 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
 </TASK>
 
 <GOAL>
+    ${GAME_PLATFORM_SYSTEM_DIRECTIVE}
+
     Design the product described by the client and come up with a really nice and professional name for the product.
-    Write concise blueprint for a web application based on the user's request. Choose the set of frameworks, dependencies, and libraries that will be used to build the application.
+    Write concise blueprint for a web game based on the user's request. Choose the set of frameworks, dependencies, and libraries that will be used to build the experience.
     This blueprint will serve as the main defining and guiding document for our whole team, so be explicit and detailed enough, especially for the initial phase.
     Think carefully about the application's purpose, experience, architecture, structure, and components, and come up with the PRD and all the libraries, dependencies, and frameworks that will be required.
     **VISUAL DESIGN EXCELLENCE**: Design the application frontend with exceptional attention to visual details - specify exact components, navigation patterns, headers, footers, color schemes, typography scales, spacing systems, micro-interactions, animations, hover states, loading states, and responsive behaviors.
@@ -231,16 +259,18 @@ Preinstalled dependencies:
 </STARTING TEMPLATE>`;
 
 const LITE_PHASIC_SYSTEM_PROMPT = `<ROLE>
-    You are a Senior Software Architect at Cloudflare specializing in rapid prototyping.
+    You are a Senior Game Architect at Cloudflare specializing in rapid prototyping.
 </ROLE>
 
 <TASK>
-    Create a concise, information-dense blueprint for a web application. Keep the total blueprint under 800 words.
+    Create a concise, information-dense blueprint for a web game. Keep the total blueprint under 800 words.
     The project is built on Cloudflare Workers, seeded from a starting template.
     Be creative but practical. Keep complexity proportional to the request.
 </TASK>
 
 <GOAL>
+    ${GAME_PLATFORM_SYSTEM_DIRECTIVE}
+
     - A professional project name
     - A brief description
     - A simple color palette (2-3 colors)
@@ -285,37 +315,42 @@ Preinstalled dependencies:
  * Convert a LitePhasicBlueprint to a full PhasicBlueprint by filling defaults for omitted fields.
  */
 function liteToPhasicBlueprint(lite: LitePhasicBlueprint): PhasicBlueprint {
-    return {
-        ...lite,
-        detailedDescription: lite.detailedDescription,
-        views: lite.views,
-        userFlow: {
-            uiLayout: lite.userFlow,
-            uiDesign: '',
-            userJourney: '',
-        },
-        dataFlow: lite.dataFlow,
-        architecture: { dataFlow: lite.dataFlow },
-        pitfalls: lite.pitfalls,
-        implementationRoadmap: [],
-        initialPhase: lite.initialPhase,
-    };
+	return {
+		...lite,
+		detailedDescription: lite.detailedDescription,
+		views: lite.views,
+		userFlow: {
+			uiLayout: lite.userFlow,
+			uiDesign: '',
+			userJourney: '',
+		},
+		dataFlow: lite.dataFlow,
+		architecture: { dataFlow: lite.dataFlow },
+		pitfalls: lite.pitfalls,
+		implementationRoadmap: [],
+		initialPhase: lite.initialPhase,
+	};
 }
 
 const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
-    app: '',
-    workflow: `## Workflow Project Context
+	app: `## Game Project Context
+- This platform only builds games. Reinterpret non-game themes as game concepts instead of planning generic business software.
+- Prefer browser-first 2D games with a clear core loop, moment-to-moment interactions, progression hooks, and fast time-to-fun.
+- Every game must include Cartridge Controller authentication using the existing platform integration pattern.
+- Keep the architecture ready for later Dojo contract integration by isolating deterministic game rules, serializable state, stable entity IDs, and command/event boundaries.
+- Choose the 2D runtime deliberately: Phaser for most games, PixiJS for renderer-first custom-loop experiences, Excalibur.js for TypeScript-first structured 2D games, Kaboom only for tiny prototypes, and avoid defaulting to Godot in this platform.`,
+	workflow: `## Workflow Project Context
 - Focus entirely on backend flows running on Cloudflare Workers (no UI/screens)
 - Describe REST endpoints, scheduled jobs, queue consumers, Durable Objects, and data storage bindings in detail
 - User flow should outline request/response shapes and operational safeguards
 - Implementation roadmap must mention testing strategies (unit tests, integration tests) and deployment validation steps.`,
-    presentation: `## Presentation Project Context
+	presentation: `## Presentation Project Context
 - Design a beautiful slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
 - Produce visually rich slides with precise layout, typography, imagery, and animation guidance
 - User flow should actually be a "story flow" describing slide order, transitions, interactions, and speaker cues
 - Implementation roadmap must reference presentation scaffold / template features (themes, deck index, slide components, animations, print/external export mode)
 - Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
-    general: `## Objective Context
+	general: `## Objective Context
 - Start from scratch; choose the most suitable representation for the request.
 - If the outcome is documentation/specs/notes, prefer Markdown/MDX and do not assume any runtime.
 - If a slide deck is helpful, outline the deck structure and content. Avoid assuming a specific file layout; keep the plan flexible.
@@ -323,117 +358,161 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 };
 
 const getProjectTypeGuidance = (projectType: ProjectType): string =>
-    PROJECT_TYPE_BLUEPRINT_GUIDANCE[projectType] || '';
+	PROJECT_TYPE_BLUEPRINT_GUIDANCE[projectType] || '';
 
 interface BaseBlueprintGenerationArgs {
-    env: Env;
-    inferenceContext: InferenceContext;
-    query: string;
-    language: string;
-    frameworks: string[];
-    projectType: ProjectType;
-    images?: ProcessedImageAttachment[];
-    stream?: {
-        chunk_size: number;
-        onChunk: (chunk: string) => void;
-    };
+	env: Env;
+	inferenceContext: InferenceContext;
+	query: string;
+	language: string;
+	frameworks: string[];
+	projectType: ProjectType;
+	images?: ProcessedImageAttachment[];
+	stream?: {
+		chunk_size: number;
+		onChunk: (chunk: string) => void;
+	};
 }
 
 export interface PhasicBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
-    templateDetails: TemplateDetails;
-    templateMetaInfo: TemplateSelection;
+	templateDetails: TemplateDetails;
+	templateMetaInfo: TemplateSelection;
 }
 
 export interface AgenticBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
-    templateDetails?: TemplateDetails;
-    templateMetaInfo?: TemplateSelection;
+	templateDetails?: TemplateDetails;
+	templateMetaInfo?: TemplateSelection;
 }
 
 /**
  * Generate a blueprint for the application based on user prompt
  */
-export async function generateBlueprint(args: PhasicBlueprintGenerationArgs): Promise<PhasicBlueprint>;
-export async function generateBlueprint(args: AgenticBlueprintGenerationArgs): Promise<AgenticBlueprint>;
 export async function generateBlueprint(
-    args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs
+	args: PhasicBlueprintGenerationArgs,
+): Promise<PhasicBlueprint>;
+export async function generateBlueprint(
+	args: AgenticBlueprintGenerationArgs,
+): Promise<AgenticBlueprint>;
+export async function generateBlueprint(
+	args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs,
 ): Promise<Blueprint> {
-    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream, projectType } = args;
-    const isAgentic = !templateDetails || !templateMetaInfo;
-    
-    try {
-        logger.info(`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`, { query, queryLength: query.length, imagesCount: images?.length || 0 });
-        if (templateDetails) logger.info(`Using template: ${templateDetails.name}`);
+	const {
+		env,
+		inferenceContext,
+		query,
+		language,
+		frameworks,
+		templateDetails,
+		templateMetaInfo,
+		images,
+		stream,
+		projectType,
+	} = args;
+	const isAgentic = !templateDetails || !templateMetaInfo;
 
-        // Select prompt and schema based on behavior type and template
-        const isLiteTemplate = !isAgentic && templateDetails?.name?.includes('minimal');
-        const systemPromptTemplate = isAgentic
-            ? SIMPLE_SYSTEM_PROMPT
-            : isLiteTemplate ? LITE_PHASIC_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
-        const schema = isAgentic
-            ? AgenticBlueprintSchema
-            : isLiteTemplate ? LitePhasicBlueprintSchema : PhasicBlueprintSchema;
-        
-        // Build system prompt with template context (if provided)
-        let systemPrompt = systemPromptTemplate;
-        if (templateDetails) {
-            const filesText = TemplateRegistry.markdown.serialize(
-                { files: getTemplateImportantFiles(templateDetails).filter(f => !f.filePath.includes('package.json')) },
-                z.object({ files: z.array(TemplateFileSchema) })
-            );
-            const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
-            systemPrompt = systemPrompt.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
-        }
-        const projectGuidance = getProjectTypeGuidance(projectType);
-        if (projectGuidance) {
-            systemPrompt = `${systemPrompt}\n\n${projectGuidance}`;
-        }
-        
-        const systemPromptMessage = createSystemMessage(generalSystemPromptBuilder(systemPrompt, {
-            query,
-            templateDetails,
-            frameworks,
-            templateMetaInfo,
-            blueprint: undefined,
-            language,
-            dependencies: templateDetails?.deps,
-        }));
+	try {
+		logger.info(
+			`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`,
+			{
+				query,
+				queryLength: query.length,
+				imagesCount: images?.length || 0,
+			},
+		);
+		if (templateDetails)
+			logger.info(`Using template: ${templateDetails.name}`);
 
-        const userMessage = images && images.length > 0
-            ? createMultiModalUserMessage(
-                `CLIENT REQUEST: "${query}"`,
-                await imagesToBase64(env, images), 
-                'high'
-              )
-            : createUserMessage(`CLIENT REQUEST: "${query}"`);
+		// Select prompt and schema based on behavior type and template
+		const isLiteTemplate =
+			!isAgentic && templateDetails?.name?.includes('minimal');
+		const systemPromptTemplate = isAgentic
+			? SIMPLE_SYSTEM_PROMPT
+			: isLiteTemplate
+				? LITE_PHASIC_SYSTEM_PROMPT
+				: PHASIC_SYSTEM_PROMPT;
+		const schema = isAgentic
+			? AgenticBlueprintSchema
+			: isLiteTemplate
+				? LitePhasicBlueprintSchema
+				: PhasicBlueprintSchema;
 
-        const messages = [
-            systemPromptMessage,
-            userMessage
-        ];
+		// Build system prompt with template context (if provided)
+		let systemPrompt = systemPromptTemplate;
+		if (templateDetails) {
+			const filesText = TemplateRegistry.markdown.serialize(
+				{
+					files: getTemplateImportantFiles(templateDetails).filter(
+						(f) => !f.filePath.includes('package.json'),
+					),
+				},
+				z.object({ files: z.array(TemplateFileSchema) }),
+			);
+			const fileTreeText = PROMPT_UTILS.serializeTreeNodes(
+				templateDetails.fileTree,
+			);
+			systemPrompt = systemPrompt
+				.replace('{{filesText}}', filesText)
+				.replace('{{fileTreeText}}', fileTreeText);
+		}
+		const projectGuidance = getProjectTypeGuidance(projectType);
+		if (projectGuidance) {
+			systemPrompt = `${systemPrompt}\n\n${projectGuidance}`;
+		}
 
-        const { object: results } = await executeInference({
-            env,
-            messages,
-            agentActionName: "blueprint",
-            schema,
-            context: inferenceContext,
-            stream,
-        });
+		const systemPromptMessage = createSystemMessage(
+			generalSystemPromptBuilder(systemPrompt, {
+				query,
+				templateDetails,
+				frameworks,
+				templateMetaInfo,
+				blueprint: undefined,
+				language,
+				dependencies: templateDetails?.deps,
+			}),
+		);
 
-        // Filter out PDF files from phasic blueprints
-        if (results && !isAgentic) {
-            if (isLiteTemplate) {
-                const liteResults = results as LitePhasicBlueprint;
-                liteResults.initialPhase.files = liteResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
-                return liteToPhasicBlueprint(liteResults);
-            }
-            const phasicResults = results as PhasicBlueprint;
-            phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
-        }
+		const userMessage =
+			images && images.length > 0
+				? createMultiModalUserMessage(
+						`CLIENT REQUEST: "${appendGamePlatformQuery(query)}"`,
+						await imagesToBase64(env, images),
+						'high',
+					)
+				: createUserMessage(
+						`CLIENT REQUEST: "${appendGamePlatformQuery(query)}"`,
+					);
 
-        return results as PhasicBlueprint | AgenticBlueprint;
-    } catch (error) {
-        logger.error("Error generating blueprint:", error);
-        throw error;
-    }
+		const messages = [systemPromptMessage, userMessage];
+
+		const { object: results } = await executeInference({
+			env,
+			messages,
+			agentActionName: 'blueprint',
+			schema,
+			context: inferenceContext,
+			stream,
+		});
+
+		// Filter out PDF files from phasic blueprints
+		if (results && !isAgentic) {
+			if (isLiteTemplate) {
+				const liteResults = results as LitePhasicBlueprint;
+				liteResults.initialPhase.files =
+					liteResults.initialPhase.files.filter(
+						(f) => !f.path.endsWith('.pdf'),
+					);
+				return liteToPhasicBlueprint(liteResults);
+			}
+			const phasicResults = results as PhasicBlueprint;
+			phasicResults.initialPhase.files =
+				phasicResults.initialPhase.files.filter(
+					(f) => !f.path.endsWith('.pdf'),
+				);
+		}
+
+		return results as PhasicBlueprint | AgenticBlueprint;
+	} catch (error) {
+		logger.error('Error generating blueprint:', error);
+		throw error;
+	}
 }
