@@ -28,7 +28,6 @@ import {
     GetLogsResponse,
     ListInstancesResponse,
     TemplateDetails,
-    TemplateInfo,
     InstanceCreationRequest,
 } from './sandboxTypes';
   
@@ -37,6 +36,10 @@ import { env } from 'cloudflare:workers'
 import { ZipExtractor } from './zipExtractor';
 import { FileTreeBuilder } from './fileTreeBuilder';
 import { DeploymentTarget } from 'worker/agents/core/types';
+import {
+    BUILTIN_MINIMAL_VITE_TEMPLATE_NAME,
+    getBuiltInTemplateDetails,
+} from 'worker/agents/utils/templates';
 
 /**
  * Streaming event for enhanced command execution
@@ -77,29 +80,27 @@ export abstract class BaseSandboxService {
      */
     static async listTemplates(): Promise<TemplateListResponse> {
         try {
-            const response = await env.TEMPLATES_BUCKET.get('template_catalog.json');
-            if (response === null) {
-                throw new Error(`Failed to fetch template catalog: Template catalog not found`);
-            }
-            
-            const templates = await response.json() as TemplateInfo[];
+            const builtInTemplate = getBuiltInTemplateDetails(
+                BUILTIN_MINIMAL_VITE_TEMPLATE_NAME,
+            );
 
-            // For now, just filter out *next* templates
-            const filteredTemplates = templates.filter(t => !t.name.includes('next'));
+            if (!builtInTemplate) {
+                throw new Error('Built-in minimal-vite template not found');
+            }
 
             return {
                 success: true,
-                templates: filteredTemplates.map(t => ({
-                    name: t.name,
-                    language: t.language,
-                    frameworks: t.frameworks || [],
-                    description: t.description,
-                    disabled: t.disabled ?? false,
-                    projectType: t.projectType || 'app',
-                    renderMode: t.renderMode,
-                    slideDirectory: t.slideDirectory,
-                })),
-                count: filteredTemplates.length
+                templates: [{
+                    name: builtInTemplate.name,
+                    language: builtInTemplate.language,
+                    frameworks: builtInTemplate.frameworks || [],
+                    description: builtInTemplate.description,
+                    disabled: builtInTemplate.disabled ?? false,
+                    projectType: builtInTemplate.projectType || 'app',
+                    renderMode: builtInTemplate.renderMode,
+                    slideDirectory: builtInTemplate.slideDirectory,
+                }],
+                count: 1,
             };
         } catch (error) {
             return {
@@ -118,6 +119,14 @@ export abstract class BaseSandboxService {
      */
     static async getTemplateDetails(templateName: string, downloadDir?: string): Promise<TemplateDetailsResponse> {
         try {
+            const builtInTemplate = getBuiltInTemplateDetails(templateName);
+            if (builtInTemplate) {
+                return {
+                    success: true,
+                    templateDetails: builtInTemplate,
+                };
+            }
+
             if (templateDetailsCache[templateName]) {
                 console.log(`Template details for template: ${templateName} found in cache`);
                 return {

@@ -176,7 +176,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 			filesIndex?.some((f) => /\.(md|mdx)$/i.test(f.filePath)) || false;
 		const hasPlan =
 			isAgenticBlueprint(blueprint) && blueprint.plan.length > 0;
-		const hasTemplate = !!selectedTemplate;
+		const hasTemplate =
+			!!selectedTemplate ||
+			(context.templateDetails &&
+				context.templateDetails.name !== 'scratch');
 		const isPresentationProject = projectType === 'presentation';
 		const needsSandbox =
 			!isPresentationProject && (hasTSX || projectType === 'app');

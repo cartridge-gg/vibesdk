@@ -45,20 +45,15 @@ export const GAME_PLATFORM_SYSTEM_DIRECTIVE = `## Game Platform Mode
 
 ## Mandatory Game Architecture Rules
 - Always define the core loop, controls, win/lose conditions, scoring, progression, pause/resume behavior, and restart behavior explicitly.
-- Every game must integrate Cartridge Controller for authentication using the existing starknet-react plus ControllerConnector pattern already present in the platform.
-- Even when contracts are not part of the MVP, the game must be ready for later Dojo integration:
-  - keep game rules and state transitions deterministic where practical
-  - separate rendering/UI from authoritative gameplay state
-  - use stable entity IDs and serializable state shapes
-  - model important player actions as commands/events that can later map to contract calls
-  - keep wallet/auth/session concerns isolated from gameplay logic
-  - avoid architecture that makes later offchain/onchain reconciliation difficult`;
+- Default to a fully browser-run game with local client-side state only.
+- Do not add Cartridge Controller authentication, backend persistence, multiplayer/server authority, or Dojo-oriented architecture unless the user explicitly asks for it.
+- Keep the code simple and easy to extend later, but do not invent future backend requirements in the current MVP.`;
 
 export const GAME_PLATFORM_QUERY_SUFFIX = `Platform requirements:
 - Build a game only. If my request is not obviously a game, reinterpret it as a game concept instead of building a generic app.
 - Choose the most suitable 2D engine or rendering approach for the gameplay: Phaser by default, PixiJS for renderer-first/custom-loop games, Excalibur.js for TypeScript-first structured 2D games, Kaboom only for tiny prototypes, and avoid Godot unless explicitly justified.
-- Use Cartridge Controller for authentication.
-- Keep the architecture ready for later Dojo contract integration even if contracts are not implemented in the MVP.`;
+- The game should run entirely in the browser by default with local state only.
+- Do not add auth, persistence, or backend systems unless explicitly requested.`;
 
 export function appendGamePlatformQuery(query: string): string {
 	if (query.includes('Platform requirements:')) {

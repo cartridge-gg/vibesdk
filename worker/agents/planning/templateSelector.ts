@@ -143,6 +143,12 @@ function getSystemPromptForProjectType(projectType: ProjectType): string {
 
 ${GAME_PLATFORM_SYSTEM_DIRECTIVE}
 
+## DEFAULT ASSUMPTION:
+- Assume the game should run entirely in the browser by default.
+- Do NOT assume a database, Durable Object, KV, auth system, or persistent backend state unless the user explicitly asks for it.
+- Prefer the smallest viable frontend/browser starter when multiple templates can satisfy the request.
+- Only choose a stateful/backend-oriented template if the prompt clearly requires persistence, multiplayer coordination, accounts, saved progress, server authority, or explicit backend APIs.
+
 ## SELECTION EXAMPLES:
 
 **Example 1 - Game Request:**
@@ -150,7 +156,7 @@ User: "Build a 2D puzzle game with scoring"
 Templates: ["react-dashboard", "react-game-starter", "vue-blog"]
 Selection: "react-game-starter"
 complexity: "simple"
-Reasoning: "Game starter template provides canvas setup, state management, and scoring systems"
+Reasoning: "Game starter template provides the simplest browser-side gameplay foundation and does not assume backend persistence."
 
 **Example 2 - Theme Converted Into Game:**
 User: "Create an analytics dashboard with charts"
@@ -167,10 +173,10 @@ complexity: "moderate"
 Reasoning: "Card battler gameplay benefits from renderer-first control and rich visual effects, so the Pixi-based template is a better fit."
 
 ## SELECTION CRITERIA:
-1. **Game Fit** - Prefer templates that already support gameplay, rendering, scenes, or game loops
-2. **Engine Fit** - Match the gameplay to the right 2D engine or rendering approach
-3. **Auth Readiness** - Prefer templates that can cleanly absorb Cartridge Controller auth
-4. **Architecture Fit** - Favor templates that can stay deterministic and Dojo-ready later
+1. **Browser-First Simplicity** - Prefer templates that let the game run fully in the browser with the fewest moving parts
+2. **Game Fit** - Prefer templates that already support gameplay, rendering, scenes, or game loops
+3. **Engine Fit** - Match the gameplay to the right 2D engine or rendering approach
+4. **Future-Friendly Architecture** - Keep room for later integration work, but do not choose backend/stateful templates unless explicitly needed now
 5. **Minimal Modification** - Template requiring the least destructive rework
 
 ## STYLE GUIDE:
@@ -186,6 +192,7 @@ Reasoning: "Card battler gameplay benefits from renderer-first control and rich 
 - Ignore misleading template names - analyze actual features
 - **ONLY** Choose from the list of available templates
 - Focus on gameplay suitability over naming conventions
+- Do not justify a template choice by inventing database, persistence, or backend-state requirements that the user did not request
 - The selected useCase must be "Game"
 - Provide clear, specific reasoning for selection`;
 	}
@@ -227,9 +234,7 @@ export async function selectTemplate(
 			? await predictProjectType(env, query, inferenceContext, images)
 			: ((projectType || 'app') as ProjectType);
 
-	availableTemplates = availableTemplates.filter(
-		(t) => !t.disabled && !t.name.includes('minimal'),
-	);
+	availableTemplates = availableTemplates.filter((t) => !t.disabled);
 	logger.info(
 		`Using project type: ${actualProjectType}${projectType === 'auto' ? ' (auto-detected)' : ''}`,
 	);

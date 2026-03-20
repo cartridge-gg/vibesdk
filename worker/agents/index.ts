@@ -5,7 +5,10 @@ import { InferenceContext } from './inferutils/config.types';
 import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
 import { selectTemplate } from './planning/templateSelector';
 import { TemplateDetails } from '../services/sandbox/sandboxTypes';
-import { createScratchTemplateDetails } from './utils/templates';
+import {
+	createHelloWorldViteTemplateDetails,
+	createScratchTemplateDetails,
+} from './utils/templates';
 import { TemplateSelection } from './schemas';
 import type { ImageAttachment } from '../types/image-attachment';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
@@ -201,12 +204,26 @@ async function handleAITemplateSelection(
 	logger.info('AI selected template', { selection: aiSelection });
 
 	if (!aiSelection.selectedTemplateName) {
-		logger.warn('No suitable template found; falling back to scratch');
-		const scratch = createScratchTemplateDetails();
+		if (aiSelection.projectType !== 'app') {
+			logger.warn(
+				'No suitable template found; falling back to scratch for non-app project',
+			);
+			const scratch = createScratchTemplateDetails();
+			return {
+				templateDetails: scratch,
+				selection: aiSelection,
+				projectType: aiSelection.projectType,
+			};
+		}
+
+		logger.warn(
+			'No suitable template found; falling back to built-in Vite starter',
+		);
+		const starter = createHelloWorldViteTemplateDetails();
 		return {
-			templateDetails: scratch,
+			templateDetails: starter,
 			selection: aiSelection,
-			projectType: aiSelection.projectType,
+			projectType: 'app',
 		};
 	}
 
