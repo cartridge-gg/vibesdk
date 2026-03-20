@@ -40,10 +40,9 @@ export default defineConfig({
 				return {
 					vars: {
 						...(config.vars ?? {}),
-						CUSTOM_DOMAIN: config.vars?.CUSTOM_DOMAIN || localAppDomain,
-						CUSTOM_PREVIEW_DOMAIN:
-							config.vars?.CUSTOM_PREVIEW_DOMAIN || localAppDomain,
-						ENVIRONMENT: config.vars?.ENVIRONMENT || 'local',
+						CUSTOM_DOMAIN: localAppDomain,
+						CUSTOM_PREVIEW_DOMAIN: localAppDomain,
+						ENVIRONMENT: 'local',
 					},
 				};
 			},
