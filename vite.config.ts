@@ -83,10 +83,10 @@ export default defineConfig({
 		host: '127.0.0.1',
 		port: 5173,
 		strictPort: true,
-		allowedHosts: ['vibe.localtest.me'],
-		origin: 'https://vibe.localtest.me',
+		allowedHosts: [localAppDomain, `.${localAppDomain}`],
+		origin: `https://${localAppDomain}`,
 		hmr: {
-			host: 'vibe.localtest.me',
+			host: localAppDomain,
 			protocol: 'wss',
 			clientPort: 443,
 		},

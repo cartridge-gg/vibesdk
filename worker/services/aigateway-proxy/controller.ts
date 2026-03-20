@@ -3,10 +3,10 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { apps } from '../../database/schema';
 import { jwtVerify, SignJWT } from 'jose';
-import { isDev } from 'worker/utils/envs';
 import { RateLimitService } from '../rate-limit/rateLimits';
 import { getUserConfigurableSettings } from 'worker/config';
 import { AI_MODEL_CONFIG, AIModels } from 'worker/agents/inferutils/config.types';
+import { getProtocolForHost } from 'worker/utils/urls';
 
 export async function proxyToAiGateway(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     console.log(`[AI Proxy] Received request: ${request.method} ${request.url}`);
@@ -229,10 +229,7 @@ export async function generateAppProxyToken(
 }
 
 export function generateAppProxyUrl(env: Env) {
-    let protocol = 'https';
     const domain = env.CUSTOM_DOMAIN;
-    if (isDev(env)) {
-        protocol = 'http';
-    }
+    const protocol = getProtocolForHost(domain);
     return `${protocol}://${domain}/api/proxy/openai`;
 }
