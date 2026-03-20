@@ -290,6 +290,9 @@ export function useChat({
 
 				// Mark this attempt id
 				const myAttemptId = ++connectAttemptIdRef.current;
+				let initialGenerateSent = false;
+				let generationActivitySeen = false;
+				let initialGenerateRetryTimeout: NodeJS.Timeout | null = null;
 
 				// Connection timeout - if connection doesn't open within 30 seconds
 				const connectionTimeout = setTimeout(() => {
@@ -331,18 +334,51 @@ export function useChat({
 
 					// Always request conversation state explicitly (running/full history)
 					sendWebSocketMessage(ws, 'get_conversation_state');
-
-					// Request file generation for new chats only
-					if (!disableGenerate && urlChatId === 'new') {
-						logger.debug('🔄 Starting code generation for new chat');
-						setIsGenerating(true);
-						sendWebSocketMessage(ws, 'generate_all');
-					}
 				});
 
 				ws.addEventListener('message', (event) => {
 					try {
 						const message: WebSocketMessage = JSON.parse(event.data);
+
+						if (
+							message.type === 'generation_started' ||
+							message.type === 'phase_generating' ||
+							message.type === 'phase_implementing' ||
+							message.type === 'file_generating' ||
+							message.type === 'file_chunk_generated' ||
+							message.type === 'file_generated' ||
+							message.type === 'generation_complete' ||
+							message.type === 'error'
+						) {
+							generationActivitySeen = true;
+							if (initialGenerateRetryTimeout) {
+								clearTimeout(initialGenerateRetryTimeout);
+								initialGenerateRetryTimeout = null;
+							}
+						}
+
+						if (
+							!disableGenerate &&
+							!initialGenerateSent &&
+							message.type === 'agent_connected'
+						) {
+							initialGenerateSent = true;
+							logger.debug('🔄 Starting code generation after agent handshake');
+							setIsGenerating(true);
+							setTimeout(() => {
+								sendWebSocketMessage(ws, 'generate_all');
+							}, 100);
+
+							initialGenerateRetryTimeout = setTimeout(() => {
+								if (!generationActivitySeen) {
+									logger.warn(
+										'No generation activity seen after initial generate_all, retrying once',
+									);
+									sendWebSocketMessage(ws, 'generate_all');
+								}
+							}, 1500);
+						}
+
 						handleWebSocketMessage(ws, message);
 					} catch (parseError) {
 						logger.error('❌ Error parsing WebSocket message:', parseError, event.data);
@@ -351,6 +387,10 @@ export function useChat({
 
 				ws.addEventListener('error', (error) => {
 					clearTimeout(connectionTimeout);
+					if (initialGenerateRetryTimeout) {
+						clearTimeout(initialGenerateRetryTimeout);
+						initialGenerateRetryTimeout = null;
+					}
 					// Only handle error for the latest attempt and when we should reconnect
 					if (myAttemptId !== connectAttemptIdRef.current) return;
 					if (!shouldReconnectRef.current) return;
@@ -360,6 +400,10 @@ export function useChat({
 
 				ws.addEventListener('close', (event) => {
 					clearTimeout(connectionTimeout);
+					if (initialGenerateRetryTimeout) {
+						clearTimeout(initialGenerateRetryTimeout);
+						initialGenerateRetryTimeout = null;
+					}
 					logger.info(
 						`🔌 WebSocket connection closed with code ${event.code}: ${event.reason || 'No reason provided'}`,
 						event,

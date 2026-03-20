@@ -25,35 +25,10 @@ export function handleWebSocketMessage(
                 break;
             }
             case WebSocketMessageRequests.GENERATE_ALL:
-                // Set shouldBeGenerating flag to indicate persistent intent
-                agent.setState({ 
-                    ...agent.state, 
-                    shouldBeGenerating: true 
-                });
-                
-                // Check if generation is already active to avoid duplicate processes
-                if (agent.getBehavior().isCodeGenerating()) {
-                    logger.info('Generation already in progress, skipping duplicate request');
-                    // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
-                    //     message: 'Code generation is already in progress'
-                    // });
-                    return;
-                }
-                
-                // Start generation process
                 logger.info('Starting code generation process');
-                agent.getBehavior().generateAllFiles().catch(error => {
+                agent.startGeneration().catch(error => {
                     logger.error('Error during code generation:', error);
                     sendError(connection, `Error generating files: ${error instanceof Error ? error.message : String(error)}`);
-                }).finally(() => {
-                    // Only clear shouldBeGenerating on successful completion
-                    // (errors might want to retry, so this could be handled differently)
-                    if (!agent.getBehavior().isCodeGenerating()) {
-                        agent.setState({ 
-                            ...agent.state, 
-                            shouldBeGenerating: false 
-                        });
-                    }
                 });
                 break;
             case WebSocketMessageRequests.DEPLOY:
@@ -107,26 +82,14 @@ export function handleWebSocketMessage(
                 break;
             }
             case WebSocketMessageRequests.RESUME_GENERATION:
-                // Set shouldBeGenerating and restart generation
                 logger.info('Resuming code generation');
-                agent.setState({ 
-                    ...agent.state, 
-                    shouldBeGenerating: true 
+                sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
+                    message: 'Code generation resumed'
                 });
-                
-                if (!agent.getBehavior().isCodeGenerating()) {
-                    sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
-                        message: 'Code generation resumed'
-                    });
-                    agent.getBehavior().generateAllFiles().catch(error => {
-                        logger.error('Error resuming code generation:', error);
-                        sendError(connection, `Error resuming generation: ${error instanceof Error ? error.message : String(error)}`);
-                    });
-                } else {
-                    // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
-                    //     message: 'Code generation is already in progress'
-                    // });
-                }
+                agent.startGeneration().catch(error => {
+                    logger.error('Error resuming code generation:', error);
+                    sendError(connection, `Error resuming generation: ${error instanceof Error ? error.message : String(error)}`);
+                });
                 break;
             case WebSocketMessageRequests.GITHUB_EXPORT:
                 // DEPRECATED: WebSocket-based GitHub export replaced with OAuth flow

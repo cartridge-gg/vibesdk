@@ -57,3 +57,29 @@ export function buildGitCloneUrl(env: Env, appId: string, token?: string): strin
     const auth = token ? `oauth2:${token}@` : '';
     return `${protocol}://${auth}${domain}/apps/${appId}.git`;
 }
+
+export function getPublicRequestOrigin(request: Request): string {
+    const originHeader = request.headers.get('Origin');
+    if (originHeader) {
+        try {
+            return new URL(originHeader).origin;
+        } catch {
+            // Fall through to forwarded/request URL handling.
+        }
+    }
+
+    const forwardedProto = request.headers.get('X-Forwarded-Proto');
+    const forwardedHost =
+        request.headers.get('X-Forwarded-Host') ?? request.headers.get('Host');
+    if (forwardedProto && forwardedHost) {
+        return `${forwardedProto}://${forwardedHost}`;
+    }
+
+    return new URL(request.url).origin;
+}
+
+export function buildAgentWebSocketUrl(request: Request, agentId: string): string {
+    const publicOrigin = new URL(getPublicRequestOrigin(request));
+    const wsProtocol = publicOrigin.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${publicOrigin.host}/api/agent/${agentId}/ws`;
+}

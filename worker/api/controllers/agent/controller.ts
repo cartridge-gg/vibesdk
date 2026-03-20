@@ -18,7 +18,7 @@ import { ModelConfig, credentialsToRuntimeOverrides } from '../../../agents/infe
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
-import { getPreviewDomain } from 'worker/utils/urls';
+import { buildAgentWebSocketUrl, getPreviewDomain, getPublicRequestOrigin } from 'worker/utils/urls';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
@@ -142,8 +142,9 @@ export class CodingAgentController extends BaseController {
 
             const { templateDetails, selection, projectType: finalProjectType } = await getTemplateForQuery(env, inferenceContext, query, projectType, body.images, this.logger, body.selectedTemplate);
 
-            const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
-            const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
+            const publicOrigin = getPublicRequestOrigin(request);
+            const websocketUrl = buildAgentWebSocketUrl(request, agentId);
+            const httpStatusUrl = `${publicOrigin}/api/agent/${agentId}`;
 
             let uploadedImages: ProcessedImageAttachment[] = [];
             if (body.images) {
@@ -185,6 +186,9 @@ export class CodingAgentController extends BaseController {
                 writer.write("terminate");
                 writer.close();
                 this.logger.info(`Agent ${agentId} terminated successfully`);
+                agentInstance.startGeneration().catch((error: unknown) => {
+                    this.logger.error(`Agent ${agentId} failed to auto-start generation`, error);
+                });
             });
 
             this.logger.info(`Agent ${agentId} init launched successfully`);
@@ -307,8 +311,7 @@ export class CodingAgentController extends BaseController {
                 this.logger.info(`Successfully connected to existing agent: ${agentId}`);
 
                 // Construct WebSocket URL
-                const url = new URL(request.url);
-                const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
+                const websocketUrl = buildAgentWebSocketUrl(request, agentId);
 
                 const responseData: AgentConnectionData = {
                     websocketUrl,

@@ -549,6 +549,24 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     async onMessage(connection: Connection, message: string): Promise<void> {
         handleWebSocketMessage(this, connection, message);
     }
+
+    async startGeneration(): Promise<void> {
+        this.setState({
+            ...this.state,
+            shouldBeGenerating: true,
+        });
+
+        try {
+            await this.behavior.generateAllFiles();
+        } finally {
+            if (!this.behavior.isCodeGenerating()) {
+                this.setState({
+                    ...this.state,
+                    shouldBeGenerating: false,
+                });
+            }
+        }
+    }
     
     /**
      * Handle WebSocket close - Agent owns WebSocket lifecycle

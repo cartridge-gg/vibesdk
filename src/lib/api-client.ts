@@ -149,10 +149,13 @@ interface CSRFTokenInfo {
 	expiresAt: number;
 }
 
+type AuthState = 'unknown' | 'authenticated' | 'unauthenticated';
+
 class ApiClient {
 	private baseUrl: string;
 	private defaultHeaders: Record<string, string>;
 	private csrfTokenInfo: CSRFTokenInfo | null = null;
+	private authState: AuthState = 'unknown';
 
 	constructor(config: ApiClientConfig = {}) {
 		this.baseUrl = config.baseUrl || '';
@@ -171,7 +174,7 @@ class ApiClient {
 		// Add session token for anonymous users if not authenticated
 		// This will be handled automatically by cookies/credentials for authenticated users
 		const sessionToken = localStorage.getItem('anonymous_session_token');
-		if (sessionToken && !document.cookie.includes('session=')) {
+		if (sessionToken && this.authState !== 'authenticated') {
 			headers['X-Session-Token'] = sessionToken;
 		}
 
@@ -219,6 +222,13 @@ class ApiClient {
 		await this.fetchCsrfToken();
 	}
 
+	private setAuthState(state: AuthState): void {
+		this.authState = state;
+		if (state === 'authenticated') {
+			localStorage.removeItem('anonymous_session_token');
+		}
+	}
+
 
 	/**
 	 * Check if CSRF token is expired
@@ -250,7 +260,7 @@ class ApiClient {
 	private ensureSessionToken(): void {
 		if (
 			!localStorage.getItem('anonymous_session_token') &&
-			!document.cookie.includes('session=')
+			this.authState !== 'authenticated'
 		) {
 			localStorage.setItem(
 				'anonymous_session_token',
@@ -350,7 +360,22 @@ class ApiClient {
 			
 			const data = await response.json() as ApiResponse<T>;
 
+			if (response.ok) {
+				if (
+					endpoint === '/api/auth/profile' ||
+					endpoint === '/api/auth/controller/login' ||
+					endpoint === '/api/auth/login'
+				) {
+					this.setAuthState('authenticated');
+				} else if (endpoint === '/api/auth/logout') {
+					this.setAuthState('unauthenticated');
+				}
+			}
+
 			if (!response.ok) {
+                if (response.status === 401 && endpoint === '/api/auth/profile') {
+                    this.setAuthState('unauthenticated');
+                }
                 if (
                     response.status === 401 &&
                     globalAuthModalTrigger &&

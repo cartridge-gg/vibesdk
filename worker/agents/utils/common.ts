@@ -111,6 +111,8 @@ export const MAX_BOOTSTRAP_COMMANDS = 50;
  * Supports: scoped packages (@org/pkg), versions (pkg@1.2.3), ranges (^, ~, >, <, =), git URLs
  */
 const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|uninstall|update)\s+([\w@/.\-^~><=:]+)/;
+const VERSIONED_INSTALL_COMMAND_PATTERN =
+	/^(npm|yarn|pnpm|bun)\s+(add|install|update)\s+(.+)$/;
 
 /**
  * Check if a command is valid for bootstrap script.
@@ -218,6 +220,45 @@ export function looksLikeCommand(text: string): boolean {
 	];
 
 	return commandIndicators.some((pattern) => pattern.test(text));
+}
+
+function stripVersionFromPackageToken(token: string): string {
+	if (token.startsWith('-')) {
+		return token;
+	}
+
+	const scopedMatch = token.match(/^(@[^/\s]+\/[^@\s]+)(?:@.+)?$/);
+	if (scopedMatch) {
+		return scopedMatch[1];
+	}
+
+	const unscopedMatch = token.match(/^([^@\s]+)(?:@.+)?$/);
+	if (unscopedMatch) {
+		return unscopedMatch[1];
+	}
+
+	return token;
+}
+
+export function stripVersionConstraintsFromInstallCommand(
+	command: string,
+): string | null {
+	const trimmedCommand = command.trim();
+	const match = trimmedCommand.match(VERSIONED_INSTALL_COMMAND_PATTERN);
+	if (!match) {
+		return null;
+	}
+
+	const [, packageManager, action, args] = match;
+	const strippedArgs = args
+		.split(/\s+/)
+		.filter(Boolean)
+		.map((token) => stripVersionFromPackageToken(token));
+
+	const normalizedCommand =
+		`${packageManager} ${action} ${strippedArgs.join(' ')}`.trim();
+
+	return normalizedCommand === trimmedCommand ? null : normalizedCommand;
 }
 
 export async function prepareMessagesForInference(env: Env, messages: ConversationMessage[]) : Promise<ConversationMessage[]> {

@@ -22,7 +22,11 @@ import { AgentActionKey, InferenceContext, InferenceRuntimeOverrides, ModelConfi
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../../services/code-fixer';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
-import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../../utils/common';
+import {
+	looksLikeCommand,
+	stripVersionConstraintsFromInstallCommand,
+	validateAndCleanBootstrapCommands,
+} from '../../utils/common';
 import { customizeTemplateFiles, generateBootstrapScript } from '../../utils/templateCustomizer';
 import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
@@ -1427,12 +1431,14 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
 
         const successfulCommands: string[] = [];
+        const unresolvedFailures = new Map<string, string | undefined>();
 
         for (const chunk of commandChunks) {
             // Retry failed commands up to 3 times
             let currentChunk = chunk;
             let retryCount = 0;
             const maxRetries = shouldRetry ? 3 : 1;
+            let lastFailures: Array<{ command: string; error?: string }> = [];
             
             while (currentChunk.length > 0 && retryCount < maxRetries) {
                 try {
@@ -1446,6 +1452,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         currentChunk
                     );
                     if (!resp.results || !resp.success) {
+                        for (const command of currentChunk) {
+                            unresolvedFailures.set(command, resp.error);
+                        }
                         this.logger.error('Failed to execute commands', { response: resp });
                         // Check if instance is still running
                         const status = await this.getSandboxServiceClient().getInstanceStatus(state.sandboxInstanceId);
@@ -1469,16 +1478,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
                     // If all succeeded, move to next chunk
                     if (failures.length === 0) {
+                        lastFailures = [];
                         this.logger.info(`All commands in chunk executed successfully`);
                         break;
                     }
                     
                     // Handle failures
                     const failedCommands = failures.map(r => r.command);
+                    lastFailures = failures.map((failure) => ({
+                        command: failure.command,
+                        error: failure.error || failure.output || undefined,
+                    }));
                     this.logger.warn(`${failures.length} commands failed: ${failedCommands.join(", ")}`);
                     
                     // Only retry if shouldRetry is true
                     if (!shouldRetry) {
+                        currentChunk = [];
                         break;
                     }
                     
@@ -1490,6 +1505,18 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     );
                     
                     if (failedInstallCommands.length > 0 && retryCount < maxRetries) {
+                        const fallbackCommands = failedInstallCommands
+                            .map((command) => stripVersionConstraintsFromInstallCommand(command))
+                            .filter((command): command is string => !!command);
+
+                        if (fallbackCommands.length > 0) {
+                            currentChunk = Array.from(new Set(fallbackCommands));
+                            this.logger.info(
+                                `Retrying failed install commands without version pins: ${currentChunk.join(", ")}`
+                            );
+                            continue;
+                        }
+
                         // Use AI to suggest alternative commands
                         const newCommands = await this.getProjectSetupAssistant().generateSetupCommands(
                             `The following install commands failed: ${JSON.stringify(failures, null, 2)}. Please suggest alternative commands.`
@@ -1511,18 +1538,36 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         currentChunk = [];
                     }
                 } catch (error) {
+                    for (const command of currentChunk) {
+                        unresolvedFailures.set(
+                            command,
+                            error instanceof Error ? error.message : String(error),
+                        );
+                    }
                     this.logger.error('Error executing commands:', error);
                     // Stop retrying on error
                     break;
                 }
             }
+
+            for (const failure of lastFailures) {
+                unresolvedFailures.set(failure.command, failure.error);
+            }
         }
 
-        // Record command execution history
-        const failedCommands = commands.filter(cmd => !successfulCommands.includes(cmd));
+        for (const successfulCommand of successfulCommands) {
+            unresolvedFailures.delete(successfulCommand);
+        }
         
-        if (failedCommands.length > 0) {
-            this.broadcastError('Failed to execute commands', new Error(failedCommands.join(", ")));
+        if (unresolvedFailures.size > 0) {
+            const failureMessage = Array.from(unresolvedFailures.entries())
+                .map(([command, error]) =>
+                    error && error.trim().length > 0
+                        ? `${command} (${error})`
+                        : command,
+                )
+                .join(', ');
+            this.broadcastError('Failed to execute commands', new Error(failureMessage));
         } else {
             this.logger.info(`All commands executed successfully: ${successfulCommands.join(", ")}`);
         }

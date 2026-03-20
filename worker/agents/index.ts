@@ -6,6 +6,7 @@ import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
 import { selectTemplate } from './planning/templateSelector';
 import { TemplateDetails } from '../services/sandbox/sandboxTypes';
 import {
+	BUILTIN_MINIMAL_VITE_TEMPLATE_NAME,
 	createHelloWorldViteTemplateDetails,
 	createScratchTemplateDetails,
 } from './utils/templates';
@@ -129,6 +130,21 @@ async function handleUserSelectedTemplate(
 	logger.info('Using user-specified template, bypassing AI selection', {
 		selectedTemplate: templateName,
 	});
+
+	if (templateName === BUILTIN_MINIMAL_VITE_TEMPLATE_NAME) {
+		return {
+			templateDetails: createHelloWorldViteTemplateDetails(),
+			selection: {
+				selectedTemplateName: BUILTIN_MINIMAL_VITE_TEMPLATE_NAME,
+				reasoning: 'User-selected built-in minimal-vite starter',
+				useCase: 'Game',
+				complexity: 'simple',
+				styleSelection: 'Custom',
+				projectType: 'app',
+			},
+			projectType: 'app',
+		};
+	}
 
 	const templatesResponse = await SandboxSdkClient.listTemplates();
 	if (!templatesResponse?.success) {

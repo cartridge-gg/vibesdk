@@ -3,7 +3,6 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
 import { ChevronRight, AlertCircle } from 'lucide-react';
-import { CloudflareLogo } from '../icons/logos';
 import { usePlatformStatus } from '@/hooks/use-platform-status';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -50,20 +49,12 @@ export function GlobalHeader() {
 								className='flex items-center'
 							>
 								<SidebarTrigger className="h-8 w-8 text-text-primary rounded-md hover:bg-orange-50/40 transition-colors duration-200" />
-								<CloudflareLogo
-									className="flex-shrink-0 mx-auto transition-all duration-300"
-									style={{
-										width: '28px',
-										height: '28px',
-										marginLeft: '8px',
-									}}
-								/>
 								{hasMaintenanceMessage && (
 									<button
 										type="button"
 										onClick={hasChangeLogs ? () => setIsChangelogOpen(true) : undefined}
 										disabled={!hasChangeLogs}
-										className={`flex max-w-full items-center gap-2 rounded-full border border-accent/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-accent/40 dark:border-accent/30 dark:bg-bg-2/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+										className={`flex max-w-full items-center gap-2 rounded-full border border-accent/40 bg-bg-4/80 px-3 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-accent/40 dark:border-accent/30 dark:bg-bg-2/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
 										aria-label="Platform updates"
 									>
 										<AlertCircle className="h-4 w-4 text-accent" />

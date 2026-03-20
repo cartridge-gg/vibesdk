@@ -1003,6 +1003,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'error': {
                 const errorData = message;
+                const isTerminalGenerationError =
+                    typeof errorData.error === 'string' &&
+                    /Initialization failed|Failed to execute commands|Error during generation/i.test(errorData.error);
+
+                setIsThinking(false);
+                setIsPhaseProgressActive(false);
+                setIsPreviewDeploying(false);
+
+                if (isTerminalGenerationError) {
+                    setIsGenerating(false);
+                }
+
                 setMessages(prev => [
                     ...prev,
                     createAIMessage(`error_${Date.now()}`, `❌ ${errorData.error}`)

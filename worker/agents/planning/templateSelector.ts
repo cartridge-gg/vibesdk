@@ -18,7 +18,6 @@ import type { ImageAttachment } from '../../types/image-attachment';
 import { ProjectType } from '../core/types';
 import {
 	appendGamePlatformQuery,
-	filterGameTemplates,
 	GAME_PLATFORM_SYSTEM_DIRECTIVE,
 } from '../utils/gamePlatform';
 
@@ -234,6 +233,25 @@ export async function selectTemplate(
 			? await predictProjectType(env, query, inferenceContext, images)
 			: ((projectType || 'app') as ProjectType);
 
+	if (actualProjectType === 'app') {
+		logger.info(
+			'Defaulting app project to built-in minimal-vite starter',
+			{
+				query,
+				projectType: actualProjectType,
+			},
+		);
+		return {
+			selectedTemplateName: null,
+			reasoning:
+				'App projects default to the built-in minimal-vite starter unless the user explicitly selects a different template.',
+			useCase: 'Game',
+			complexity: 'simple',
+			styleSelection: 'Custom',
+			projectType: actualProjectType,
+		};
+	}
+
 	availableTemplates = availableTemplates.filter((t) => !t.disabled);
 	logger.info(
 		`Using project type: ${actualProjectType}${projectType === 'auto' ? ' (auto-detected)' : ''}`,
@@ -246,14 +264,7 @@ export async function selectTemplate(
 			: availableTemplates.filter(
 					(t) => t.projectType === actualProjectType,
 				);
-	const gameFilteredTemplates =
-		actualProjectType === 'app'
-			? filterGameTemplates(filteredTemplates)
-			: filteredTemplates;
-	const candidateTemplates =
-		gameFilteredTemplates.length > 0
-			? gameFilteredTemplates
-			: filteredTemplates;
+	const candidateTemplates = filteredTemplates;
 
 	if (candidateTemplates.length === 0) {
 		logger.warn(
@@ -325,8 +336,6 @@ Template detail: ${templateDescriptions}
 **Task:** Select the most suitable template and provide:
 1. Template name (exact match from list)
 2. Clear reasoning for why it fits the user's needs
-${actualProjectType === 'app' ? "3. Appropriate style for the project type. Try to come up with unique styles that might look nice and unique. Be creative about your choices. But don't pick brutalist all the time." : ''}
-${actualProjectType === 'app' ? '4. Set useCase to "Game".' : ''}
 
 Analyze each template's features, frameworks, and architecture to make the best match.
 ${images && images.length > 0 ? `\n**Note:** User provided ${images.length} image(s) - consider visual requirements and UI style from the images.` : ''}
@@ -370,13 +379,10 @@ ENTROPY SEED: ${generateSecureToken(64)} - for unique results`;
 		);
 
 		// Ensure projectType is set correctly
-		return {
-			...selection,
-			...(actualProjectType === 'app'
-				? { useCase: 'Game' as const }
-				: {}),
-			projectType: actualProjectType,
-		};
+			return {
+				...selection,
+				projectType: actualProjectType,
+			};
 	} catch (error) {
 		logger.error('Error during AI template selection:', error);
 		if (

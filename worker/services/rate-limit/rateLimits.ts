@@ -190,6 +190,9 @@ export class RateLimitService {
 		user: AuthUser,
 		request: Request
 	): Promise<void> {
+		// Temporary global override while app creation throttling is disabled operationally.
+		return;
+
 		if (!config[RateLimitType.APP_CREATION].enabled) {
 			return;
 		}
