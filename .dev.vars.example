@@ -1,5 +1,7 @@
 # Security Configuration
 #CUSTOM_DOMAIN="your-domain.com" # Your custom domain for CORS
+#CUSTOM_PREVIEW_DOMAIN="preview.your-domain.com" # Optional dedicated domain for user deployments, e.g. app IDs at *.preview.your-domain.com
+#ALLOWED_EMAIL="you@example.com" # Optional access restriction for the platform UI
 #ENVIRONMENT="prod" # Options: dev, staging, prod
 
 # Cloudflare Credentials (Required for manual deployment via `bun run deploy`)
@@ -33,6 +35,8 @@ GOOGLE_AI_STUDIO_API_KEY=""
 # Secrets for various internal services of this platform
 JWT_SECRET="" 
 WEBHOOK_SECRET="" 
+SECRETS_ENCRYPTION_KEY=""
+AI_PROXY_JWT_SECRET=""
 
 # AI Gateway URL Override (Leave as-is if not going to set it)
 #CLOUDFLARE_AI_GATEWAY_URL=""

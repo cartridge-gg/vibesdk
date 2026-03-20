@@ -509,6 +509,7 @@ useEffect(() => { init(config); }, [config]); // stable reference
 `,
 	COMMANDS: `<SETUP COMMANDS>
     • **Provide explicit commands to install necessary dependencies ONLY.** DO NOT SUGGEST MANUAL CHANGES. These commands execute directly.
+    • **Keep installation as simple as possible.** Do not add linting, formatting, git hooks, testing frameworks, or other custom tooling unless the user explicitly asks for them.
     • **Dependency Versioning:**
         - **Use specific, known-good major versions.** Avoid relying solely on 'latest' (unless you are unsure) which can introduce unexpected breaking changes.
         - Always suggest a known recent compatible stable major version. If unsure which version might be available, don't specify any version.

@@ -17,10 +17,11 @@ interface GenerateSetupCommandsArgs {
     inferenceContext: InferenceContext;
 }
 
-const SYSTEM_PROMPT = `You are an Expert DevOps Engineer at Cloudflare specializing in project setup and dependency management. Your task is to analyze project requirements and generate precise installation commands for missing dependencies.`
+const SYSTEM_PROMPT = `You are an Expert DevOps Engineer at Cloudflare specializing in project setup and dependency management. Your task is to analyze project requirements and generate the smallest possible set of installation commands for missing dependencies. Do not add linting, formatting, git hooks, testing frameworks, or other custom tooling unless the user explicitly asks for them.`
 
 const SETUP_USER_PROMPT = `## TASK
 Analyze the blueprint and generate exact \`bun add\` commands for missing dependencies. Only suggest packages that are NOT already in the starting template.
+Favor the simplest possible setup. Only install dependencies that are strictly required for the project to run.
 
 ## EXAMPLES
 
@@ -59,6 +60,7 @@ Output:
 - Include common companion packages when needed
 - Focus on blueprint requirements only
 - cloudflare:workers is not needed, it's already installed
+- Do NOT add ESLint, Prettier, Husky, lint-staged, commit tooling, testing libraries, or other custom tooling unless explicitly requested by the user
 
 **Do not recommend installing \`cloudflare:workers\` or \`cloudflare:durable-objects\` as dependencies, these are already installed in the project always.**
 

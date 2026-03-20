@@ -1100,12 +1100,16 @@ class CloudflareDeploymentManager {
 				? previewZoneId 
 				: (zoneDetectionSuccess && zoneId ? zoneId : undefined);
 
+			const wildcardPattern = wildcardDomain.startsWith('*.')
+				? `${wildcardDomain}/*`
+				: `*.${wildcardDomain}/*`;
+
 			const wildcardRoute: {
 				pattern: string;
 				custom_domain: boolean;
 				zone_id?: string;
 			} = {
-				pattern: `*${wildcardDomain}/*`,
+				pattern: wildcardPattern,
 				custom_domain: false,
 			};
 

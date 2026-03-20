@@ -118,17 +118,28 @@ Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashbo
 - `SANDBOX_INSTANCE_TYPE` - Container performance tier (optional, see section below)
 - `ALLOWED_EMAIL` - Email address of the user allowed to use the app. This is used to verify the user's identity and prevent unauthorized access.
 - `CUSTOM_DOMAIN` - Custom domain for your app that you have configured in Cloudflare (**Required**). If you use a first-level subdomain such as `abc.xyz.com`, make sure the Advanced Certificate Manager add-on is active on that zone.
+- `CUSTOM_PREVIEW_DOMAIN` - Optional dedicated domain for user deployments, for example `apps.xyz.com` so generated apps resolve at `https://<app-id>.apps.xyz.com`
 
 ### Custom domain DNS setup
 
-To serve preview apps correctly, add the following DNS record in the zone that hosts `CUSTOM_DOMAIN`:
+If you only use `CUSTOM_DOMAIN`, preview apps resolve at `https://<app-id>.<CUSTOM_DOMAIN>` and you need a wildcard DNS record under that same zone.
+
+If you set `CUSTOM_PREVIEW_DOMAIN`, preview apps resolve at `https://<app-id>.<CUSTOM_PREVIEW_DOMAIN>` and the wildcard DNS record must exist for that preview domain instead.
+
+To serve preview apps correctly, add the following DNS record in the zone that hosts your preview domain:
 
 - Type: `CNAME`
-- Name: `*.abc`
-- Target: `abc.xyz.com` (replace with your base custom domain or another appropriate origin)
+- Name: the wildcard label for your preview domain, for example `*.apps` when using `apps.xyz.com`
+- Target: your preview domain, for example `apps.xyz.com`
 - Proxy status: **Proxied** (orange cloud)
 
-Adjust the placeholder `abc`/`xyz` parts to match your domain. DNS propagation can take time—expect it to take up to an hour before previews resolve. This step may be automated in a future release, but it is required today.
+Example:
+
+- `CUSTOM_DOMAIN=build.xyz.com`
+- `CUSTOM_PREVIEW_DOMAIN=apps.xyz.com`
+- Wildcard DNS record: `*.apps.xyz.com` proxied in Cloudflare
+
+DNS propagation can take time—expect it to take up to an hour before previews resolve. This step may be automated in a future release, but it is required today.
 
 ### 🏗️ Sandbox Instance Configuration (Optional)
 
