@@ -45,8 +45,9 @@ export const GAME_PLATFORM_SYSTEM_DIRECTIVE = `## Game Platform Mode
 
 ## Mandatory Game Architecture Rules
 - Always define the core loop, controls, win/lose conditions, scoring, progression, pause/resume behavior, and restart behavior explicitly.
-- Default to a fully browser-run game with local client-side state only.
-- Do not add actual Dojo contracts, Katana, Torii, Slot deployment, Cartridge Controller authentication, backend persistence, or multiplayer/server authority unless the user explicitly asks for them.
+- Every game must ship with Cartridge Controller authentication and a sign-in flow by default, using the platform's existing integration pattern.
+- Treat player identity as available from Controller, but keep gameplay state browser-local unless the user explicitly asks for persistence, multiplayer authority, or onchain execution.
+- Do not add actual Dojo contracts, Katana, Torii, Slot deployment, backend persistence, or multiplayer/server authority unless the user explicitly asks for them.
 - Even without shipping Dojo code yet, structure the game so it could later map cleanly onto a Dojo World:
   - Model authoritative gameplay state as small, serializable, ECS-friendly records with stable entity IDs or keys.
   - Express gameplay mutations as explicit commands or actions with deterministic state transitions.
@@ -59,8 +60,8 @@ export const GAME_PLATFORM_SYSTEM_DIRECTIVE = `## Game Platform Mode
 export const GAME_PLATFORM_QUERY_SUFFIX = `Platform requirements:
 - Build a game only. If my request is not obviously a game, reinterpret it as a game concept instead of building a generic app.
 - Implement the game in native React with ordinary browser APIs, local state, and TypeScript utilities. Do not use any game engine unless I explicitly ask for one.
-- The game should run entirely in the browser by default with local state only.
-- Do not add auth, persistence, or backend systems unless explicitly requested.
+- Include Cartridge Controller sign-in by default using the existing platform integration pattern.
+- Keep gameplay state browser-local by default; do not add persistence or backend systems unless explicitly requested.
 - Keep the game design Dojo-compatible: stable entities, small serializable state records, explicit player commands, deterministic updates, and clear event boundaries.`;
 
 export function appendGamePlatformQuery(query: string): string {

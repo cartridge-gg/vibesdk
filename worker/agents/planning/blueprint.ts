@@ -336,7 +336,8 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 	app: `## Game Project Context
 - This platform only builds games. Reinterpret non-game themes as game concepts instead of planning generic business software.
 - Prefer browser-first 2D games with a clear core loop, moment-to-moment interactions, progression hooks, and fast time-to-fun.
-- Every game must include Cartridge Controller authentication using the existing platform integration pattern.
+- Every game must ship with Cartridge Controller authentication and a default sign-in experience using the existing platform integration pattern.
+- Blueprint the authenticated player journey explicitly: signed-out entry state, sign-in CTA or gate, authenticated game shell, and any account-dependent HUD/profile affordances.
 - Keep the architecture ready for later Dojo contract integration:
   - isolate authoritative game rules into deterministic command handlers over serializable ECS-like state
   - use stable entity IDs or keys and small focused state slices that could become Dojo models

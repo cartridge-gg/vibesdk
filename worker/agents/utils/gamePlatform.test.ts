@@ -30,6 +30,7 @@ describe('gamePlatform', () => {
 		const query = appendGamePlatformQuery('Build a roguelite');
 		expect(query).toContain('Platform requirements:');
 		expect(query).toContain('native React');
+		expect(query).toContain('Cartridge Controller sign-in by default');
 		expect(query).not.toContain('Phaser');
 		expect(appendGamePlatformQuery(query)).toBe(query);
 	});

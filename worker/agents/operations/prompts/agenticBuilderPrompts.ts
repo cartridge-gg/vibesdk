@@ -69,9 +69,11 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 
 7. **Game Runtime Choice**: Build games with native React, browser events, requestAnimationFrame, CSS transforms, and plain TypeScript state by default. Do not introduce Phaser, PixiJS, Excalibur, Kaboom, Godot, or any other engine unless the user explicitly asks for one.
 
-8. **Browser-Only by Default**: Unless the user explicitly asks for backend persistence, accounts, multiplayer coordination, or server APIs, build the game to run entirely in the browser with local in-memory/client-side state only.
+8. **Controller Sign-In by Default**: Every game must include Cartridge Controller authentication using the platform's existing integration pattern. Ship a signed-out state plus a clear sign-in entry point or gate, and an authenticated game shell once connected.
 
-9. **Design for Future Dojo Compatibility**: Even when not generating Cairo contracts yet, shape the game so it could later map cleanly onto Dojo's World/Models/Systems stack:
+9. **Browser-Local Gameplay by Default**: Unless the user explicitly asks for backend persistence, multiplayer coordination, or server APIs, keep gameplay state entirely in the browser with local in-memory or client-side state. Controller identity is still included by default.
+
+10. **Design for Future Dojo Compatibility**: Even when not generating Cairo contracts yet, shape the game so it could later map cleanly onto Dojo's World/Models/Systems stack:
    - Treat future authoritative gameplay state as small serializable ECS-style records with stable entity IDs or keys
    - Express mutations as explicit commands or actions with deterministic state transitions and clear validation points
    - Separate authority-critical state from derived UI state, animation, interpolation, particles, and other client-only presentation
@@ -79,9 +81,9 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - Prefer atomic, transaction-shaped gameplay steps over mechanics that require per-frame onchain writes
    - Make room for future optimistic UI and reconciliation against an authoritative state source
 
-10. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
+11. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
 
-11. **Keep Setup Minimal**: Use the simplest possible installation for every project. Do NOT add linting, formatting, git hooks, CI scaffolding, codegen, or other custom tooling unless the user explicitly asks for it. Prefer only the runtime dependencies strictly required to make the project work.
+12. **Keep Setup Minimal**: Use the simplest possible installation for every project. Do NOT add linting, formatting, git hooks, CI scaffolding, codegen, or other custom tooling unless the user explicitly asks for it. Prefer only the runtime dependencies strictly required to make the project work.
 </critical_rules>`;
 
 	const architecture = isPresentationProject
@@ -165,7 +167,8 @@ Solution: Call deploy_preview to sync virtual → sandbox
 6. **Test & Polish**: Fix all errors before completion → Ensure professional quality
 
 Static content (docs, markdown): avoid unless the user explicitly asks for supporting documentation instead of a playable game.
-Do not introduce database state, Durable Objects, KV, auth, or backend APIs unless the user explicitly requires them.
+Do not introduce database state, Durable Objects, KV, or backend APIs unless the user explicitly requires them.
+Always include the existing Cartridge Controller sign-in flow for games, and make sure the first-run user journey works both signed out and signed in.
 When planning or implementing gameplay, explicitly decide what belongs to future authoritative state versus what is only presentational so later Dojo migration is straightforward.
 </workflow>`;
 
@@ -333,6 +336,7 @@ You're empowered to design presentations that match the user's vision. Consider:
 - Interactive states (hover, focus, active, disabled)
 - Accessibility basics (semantic HTML, ARIA when needed)
 - TailwindCSS for styling (theme-consistent)
+- Signed-out and signed-in states both feel intentional, not bolted on
 
 ## Testing & Verification
 - All TypeScript errors resolved
@@ -346,6 +350,11 @@ You're empowered to design presentations that match the user's vision. Consider:
 - Important state is modeled as small focused records instead of one giant mutable blob
 - Player actions map to explicit commands and produce clear state changes or events
 - High-frequency visuals are client-side only; authority-critical actions are coarse enough for transaction-based execution
+
+## Auth Expectations
+- Controller sign-in is present by default for every game
+- The game has a clear authenticated player identity in the shell or HUD
+- The signed-out experience is usable and clearly guides the user into sign-in before account-dependent actions
 
 ${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
 
