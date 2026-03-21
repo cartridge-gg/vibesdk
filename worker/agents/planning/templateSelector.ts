@@ -164,17 +164,17 @@ Selection: "react-game-starter"
 complexity: "moderate"
 Reasoning: "The platform only builds games, so the analytics theme should be reinterpreted into a management or tycoon-style game. The game starter is the best gameplay foundation."
 
-**Example 3 - Renderer-First Game:**
+**Example 3 - UI-Heavy Browser Game:**
 User: "Build a neon card battler with lots of visual effects"
-Templates: ["react-game-starter", "pixi-card-template", "angular-todo"]
-Selection: "pixi-card-template"
+Templates: ["minimal-vite", "pixi-card-template", "angular-todo"]
+Selection: "minimal-vite"
 complexity: "moderate"
-Reasoning: "Card battler gameplay benefits from renderer-first control and rich visual effects, so the Pixi-based template is a better fit."
+Reasoning: "A card battler fits well in standard React components with local browser state, so the smallest React starter is the best default."
 
 ## SELECTION CRITERIA:
 1. **Browser-First Simplicity** - Prefer templates that let the game run fully in the browser with the fewest moving parts
 2. **Game Fit** - Prefer templates that already support gameplay, rendering, scenes, or game loops
-3. **Engine Fit** - Match the gameplay to the right 2D engine or rendering approach
+3. **React-Native Fit** - Prefer templates that support gameplay in standard React components and hooks without extra runtime machinery
 4. **Future-Friendly Architecture** - Keep room for later integration work, but do not choose backend/stateful templates unless explicitly needed now
 5. **Minimal Modification** - Template requiring the least destructive rework
 
@@ -191,6 +191,7 @@ Reasoning: "Card battler gameplay benefits from renderer-first control and rich 
 - Ignore misleading template names - analyze actual features
 - **ONLY** Choose from the list of available templates
 - Focus on gameplay suitability over naming conventions
+- Prefer native React/browser implementations over engine-specific templates unless the user explicitly requests an engine
 - Do not justify a template choice by inventing database, persistence, or backend-state requirements that the user did not request
 - The selected useCase must be "Game"
 - Provide clear, specific reasoning for selection`;

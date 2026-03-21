@@ -29,6 +29,8 @@ describe('gamePlatform', () => {
 	it('appends the platform requirements once', () => {
 		const query = appendGamePlatformQuery('Build a roguelite');
 		expect(query).toContain('Platform requirements:');
+		expect(query).toContain('native React');
+		expect(query).not.toContain('Phaser');
 		expect(appendGamePlatformQuery(query)).toBe(query);
 	});
 

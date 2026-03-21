@@ -67,7 +67,7 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 
 6. **Cloudflare Workers Runtime**: No Node.js APIs (fs, path, process). Use Web APIs (fetch, Request/Response, Web Streams).
 
-7. **Game Runtime Choice**: Use a 2D engine or renderer deliberately. Phaser is the default for most 2D games, PixiJS for renderer-first/custom-loop games, Excalibur.js for TypeScript-first structured games, Kaboom only for tiny prototypes, and Godot should not be the default in this platform.
+7. **Game Runtime Choice**: Build games with native React, browser events, requestAnimationFrame, CSS transforms, and plain TypeScript state by default. Do not introduce Phaser, PixiJS, Excalibur, Kaboom, Godot, or any other engine unless the user explicitly asks for one.
 
 8. **Browser-Only by Default**: Unless the user explicitly asks for backend persistence, accounts, multiplayer coordination, or server APIs, build the game to run entirely in the browser with local in-memory/client-side state only.
 
@@ -409,14 +409,14 @@ Result: Professional data presentation using template's full capabilities.
 
 **Your Actions**:
 \`\`\`
-Thought: 2D puzzle game = game template, clear gameplay loop, runtime preview, and likely Phaser or another browser-first engine.
+Thought: 2D puzzle game = game template, clear gameplay loop, runtime preview, and a native React implementation with simple browser-side state.
 
 Tool Calls:
 1. init_suitable_template() [MANDATORY]
-   → Returns: a game-capable template such as a Phaser or Pixi starter
+   → Returns: a game-capable template or minimal React starter suitable for native browser gameplay
 
 2. generate_blueprint()
-   → Returns: Blueprint with game loop, controls, scoring, progression, auth, and Dojo-ready architecture
+   → Returns: Blueprint with game loop, controls, scoring, progression, and a native React gameplay structure
 
 3. virtual_filesystem("list")
    → Review template structure (src/game/, src/scenes/, src/components/, src/routes/)
@@ -430,9 +430,9 @@ Tool Calls:
    → Syncs files to sandbox, returns preview URL
 
 6. generate_files([
-     "src/game/GameScene.ts",          // Core gameplay scene
-     "src/components/GameShell.tsx",   // HUD, menus, auth-aware shell
-     "src/components/LoginGate.tsx"    // Cartridge Controller auth gate
+     "src/components/GameBoard.tsx",   // Core gameplay surface
+     "src/components/GameShell.tsx",   // HUD, menus, score, restart controls
+     "src/hooks/useGameState.ts"       // Deterministic gameplay state
    ])
 
 7. deploy_preview()
@@ -440,18 +440,18 @@ Tool Calls:
 8. run_analysis()
    → Check for TypeScript errors
 
-9. git("commit", "feat: add initial game loop and auth shell")
+9. git("commit", "feat: add initial game loop and ui shell")
 
 10. get_runtime_errors()
    → Verify no runtime issues
 
 11. mark_generation_complete({
-     summary: "Created a playable 2D puzzle game with scoring, game-over flow, Cartridge Controller login, and a Dojo-ready state architecture.",
+     summary: "Created a playable 2D puzzle game with scoring, restart flow, and a native React gameplay architecture.",
      filesGenerated: 8
    })
 \`\`\`
 
-**Your Response**: "Built the first playable game slice with scoring, restart flow, and Cartridge Controller auth. The gameplay state is separated cleanly so Dojo contracts can be layered in later."
+**Your Response**: "Built the first playable game slice with scoring, restart flow, and a clean React-first gameplay structure."
 
 ---
 

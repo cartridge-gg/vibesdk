@@ -197,7 +197,8 @@ const HELLO_WORLD_VITE_APP = `export default function App() {
           </h1>
           <p className="max-w-2xl text-base leading-7 text-slate-700 md:text-lg">
             This project starts from a minimal Vite + React + Cloudflare baseline
-            with Tailwind CSS and common app utilities already wired up.
+            with Tailwind CSS, common app utilities, and a clean React-first foundation
+            for interactive apps or games without any engine assumptions.
           </p>
         </section>
       </div>
@@ -434,6 +435,7 @@ export function createHelloWorldViteTemplateDetails(): TemplateDetails {
 Use this as the default starting point for new app projects when no richer template is required.
 - Reuse and edit the existing files instead of recreating them.
 - Keep the dependency set minimal unless the user explicitly needs more.
+- For games, prefer native React components, hooks, and browser APIs over any dedicated game engine.
 - Do not add linting, formatting, test frameworks, git hooks, or other custom tooling by default.`,
         },
         fileTree: {

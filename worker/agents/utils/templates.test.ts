@@ -22,6 +22,9 @@ describe('templates', () => {
 			'"main": "worker/index.ts"',
 		);
 		expect(template.allFiles['src/App.tsx']).toContain('Hello world.');
+		expect(template.allFiles['src/App.tsx']).toContain(
+			'without any engine assumptions',
+		);
 		expect(template.allFiles['src/index.css']).toContain(
 			'@import "tailwindcss";',
 		);
@@ -49,6 +52,9 @@ describe('templates', () => {
 			tailwindcss: '^4.2.2',
 		});
 		expect(packageJson.devDependencies).not.toHaveProperty('eslint');
+		expect(template.description.usage).toContain(
+			'native React components, hooks, and browser APIs',
+		);
 	});
 
 	it('returns built-in templates by name', () => {

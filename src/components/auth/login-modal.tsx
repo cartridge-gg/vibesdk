@@ -103,9 +103,9 @@ export function LoginModal({
 									void handleLogin();
 								}}
 								disabled={isLoading}
-								className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#f48120]/30 bg-[#161514] px-4 py-4 text-white transition-all hover:border-[#f48120]/60 hover:bg-[#201d1a] disabled:cursor-not-allowed disabled:opacity-50"
+								className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#eeb402]/30 bg-[#18160f] px-4 py-4 text-white transition-all hover:border-[#eeb402]/60 hover:bg-[#231f12] disabled:cursor-not-allowed disabled:opacity-50"
 							>
-								<div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f48120] font-semibold text-white">
+								<div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eeb402] font-semibold text-[#1a1400]">
 									C
 								</div>
 								<div className="flex flex-col items-start text-left">

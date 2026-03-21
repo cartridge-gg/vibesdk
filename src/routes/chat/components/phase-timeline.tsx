@@ -48,7 +48,7 @@ const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 	const colorMap = {
 		accent: 'text-accent',
 		blue: 'text-blue-400',
-		orange: 'text-orange-400',
+		orange: 'text-[#eeb402]',
 		tertiary: 'text-text-tertiary',
 		green: 'text-green-500'
 	};
@@ -60,7 +60,7 @@ const StatusCheck = ({ size = 'md', color = 'green' }: StatusLoaderProps) => {
 	const colorMap = {
 		accent: 'text-accent',
 		blue: 'text-blue-400',
-		orange: 'text-orange-400',
+		orange: 'text-[#eeb402]',
 		tertiary: 'text-text-tertiary',
 		green: 'text-green-500'
 	};
@@ -90,7 +90,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 		case 'completed':
 			return <Check className={clsx(iconClasses, 'text-green-500', className)} />;
 		case 'cancelled':
-			return <XCircle className={clsx(iconClasses, 'text-orange-400', className)} />;
+			return <XCircle className={clsx(iconClasses, 'text-[#eeb402]', className)} />;
 		case 'error':
 			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
 		case 'active':
@@ -721,8 +721,8 @@ export function PhaseTimeline({
 										)}
 										{staticIssueCount > 0 && (
 											<span className="inline-flex items-center gap-1">
-												<div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-												<span className="text-orange-400/80">{staticIssueCount} warning{staticIssueCount > 1 ? 's' : ''}</span>
+												<div className="w-1.5 h-1.5 rounded-full bg-[#eeb402]" />
+												<span className="text-[#eeb402]/80">{staticIssueCount} warning{staticIssueCount > 1 ? 's' : ''}</span>
 											</span>
 										)}
 									</motion.span>
@@ -872,12 +872,12 @@ export function PhaseTimeline({
 											);
 										} else if (isPreviewDeploying) {
 											return (
-												<div className="space-y-1 relative bg-orange-50/5 border border-orange-200/20 rounded-lg p-3">
+												<div className="space-y-1 relative bg-[#eeb402]/8 border border-[#eeb402]/20 rounded-lg p-3">
 													<div className="flex items-center gap-2">
 														<StatusLoader size="sm" color="orange" />
-														<span className="text-sm font-medium text-orange-400">Deploying preview...</span>
+														<span className="text-sm font-medium text-[#eeb402]">Deploying preview...</span>
 													</div>
-													<span className="text-xs text-orange-300/80 ml-5">Updating your preview environment</span>
+													<span className="text-xs text-[#f6cb3d]/80 ml-5">Updating your preview environment</span>
 												</div>
 											);
 										}

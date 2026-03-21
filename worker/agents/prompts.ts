@@ -1204,16 +1204,10 @@ const GAME_INSTRUCTIONS = (
 ): string => `
 ** Build a game, not a generic product app
 ** If the original request is not explicitly a game, reinterpret its theme into a compelling game loop instead of building non-game software
-** Pick the most suitable 2D runtime based on the prompt:
-** Phaser for most arcade, puzzle, platformer, action, top-down, and scene-based games
-** PixiJS for renderer-first, board/card, custom loop, or VFX-heavy games where direct rendering control matters more than engine batteries
-** Excalibur.js for TypeScript-first structured 2D games with a smaller engine surface
-** Kaboom only for tiny arcade prototypes and extremely small MVPs
-** Avoid defaulting to Godot in this platform because the runtime is Vite/browser-first
-** Keep React focused on shell UI such as auth, menus, HUD wrappers, settings, inventory, matchmaking, or metagame screens
-** Use Cartridge Controller authentication as a first-class part of the experience
-** Keep gameplay logic deterministic and serializable so later Dojo contract integration is straightforward
-** Separate rendering, input handling, game state transitions, and wallet/auth concerns into clear boundaries
+** Implement gameplay with native React components, browser events, requestAnimationFrame, CSS transforms, and plain TypeScript state by default
+** Do not use Phaser, PixiJS, Excalibur.js, Kaboom, Godot, canvas engines, or any other game engine unless the user explicitly asks for one
+** Keep the architecture simple and inspectable: separate game state, input handling, timing/loop helpers, and presentation components into clear boundaries
+** Do not add Cartridge Controller authentication, persistence, or Dojo-oriented architecture unless the user explicitly asks for it
 ** Specify controls, game loop, scoring, progression, failure states, and restart conditions explicitly
 
 Use the following artistic style:
