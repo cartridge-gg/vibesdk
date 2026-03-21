@@ -71,9 +71,17 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 
 8. **Browser-Only by Default**: Unless the user explicitly asks for backend persistence, accounts, multiplayer coordination, or server APIs, build the game to run entirely in the browser with local in-memory/client-side state only.
 
-9. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
+9. **Design for Future Dojo Compatibility**: Even when not generating Cairo contracts yet, shape the game so it could later map cleanly onto Dojo's World/Models/Systems stack:
+   - Treat future authoritative gameplay state as small serializable ECS-style records with stable entity IDs or keys
+   - Express mutations as explicit commands or actions with deterministic state transitions and clear validation points
+   - Separate authority-critical state from derived UI state, animation, interpolation, particles, and other client-only presentation
+   - Emit or track meaningful domain events so future Torii indexing and subscriptions have a natural event surface
+   - Prefer atomic, transaction-shaped gameplay steps over mechanics that require per-frame onchain writes
+   - Make room for future optimistic UI and reconciliation against an authoritative state source
 
-10. **Keep Setup Minimal**: Use the simplest possible installation for every project. Do NOT add linting, formatting, git hooks, CI scaffolding, codegen, or other custom tooling unless the user explicitly asks for it. Prefer only the runtime dependencies strictly required to make the project work.
+10. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
+
+11. **Keep Setup Minimal**: Use the simplest possible installation for every project. Do NOT add linting, formatting, git hooks, CI scaffolding, codegen, or other custom tooling unless the user explicitly asks for it. Prefer only the runtime dependencies strictly required to make the project work.
 </critical_rules>`;
 
 	const architecture = isPresentationProject
@@ -158,6 +166,7 @@ Solution: Call deploy_preview to sync virtual → sandbox
 
 Static content (docs, markdown): avoid unless the user explicitly asks for supporting documentation instead of a playable game.
 Do not introduce database state, Durable Objects, KV, auth, or backend APIs unless the user explicitly requires them.
+When planning or implementing gameplay, explicitly decide what belongs to future authoritative state versus what is only presentational so later Dojo migration is straightforward.
 </workflow>`;
 
 	const tools = `<tools>
@@ -330,6 +339,13 @@ You're empowered to design presentations that match the user's vision. Consider:
 - No lint warnings
 - Runtime tested via preview
 - Edge cases considered
+
+## Dojo Readiness
+- Core rules are deterministic and isolated from rendering concerns
+- Entity identity is stable and serializable
+- Important state is modeled as small focused records instead of one giant mutable blob
+- Player actions map to explicit commands and produce clear state changes or events
+- High-frequency visuals are client-side only; authority-critical actions are coarse enough for transaction-based execution
 
 ${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
 

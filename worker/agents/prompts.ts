@@ -1207,7 +1207,8 @@ const GAME_INSTRUCTIONS = (
 ** Implement gameplay with native React components, browser events, requestAnimationFrame, CSS transforms, and plain TypeScript state by default
 ** Do not use Phaser, PixiJS, Excalibur.js, Kaboom, Godot, canvas engines, or any other game engine unless the user explicitly asks for one
 ** Keep the architecture simple and inspectable: separate game state, input handling, timing/loop helpers, and presentation components into clear boundaries
-** Do not add Cartridge Controller authentication, persistence, or Dojo-oriented architecture unless the user explicitly asks for it
+** Do not add actual Dojo contracts, Torii, Katana, Controller auth, persistence, or other backend systems unless the user explicitly asks for them
+** Still make the design Dojo-compatible: use stable entity IDs, small serializable state records, explicit commands, deterministic authoritative updates, and meaningful events
 ** Specify controls, game loop, scoring, progression, failure states, and restart conditions explicitly
 
 Use the following artistic style:
