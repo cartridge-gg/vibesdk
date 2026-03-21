@@ -17,16 +17,20 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.17.1",
+    "@tailwindcss/vite": "^4.2.2",
     "@cloudflare/workers-types": "^4.20250424.0",
     "@types/node": "^22.15.3",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.2.2",
     "typescript": "5.8",
     "vite": "^6.3.1",
     "wrangler": "^4.39.0"
@@ -53,9 +57,10 @@ const HELLO_WORLD_VITE_CONFIG = `import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { cloudflare } from '@cloudflare/vite-plugin';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), cloudflare()],
+  plugins: [react(), cloudflare(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -181,21 +186,30 @@ createRoot(document.getElementById('root')!).render(
 
 const HELLO_WORLD_VITE_APP = `export default function App() {
   return (
-    <main className="app-shell">
-      <div className="app-card">
-        <p className="app-kicker">Starter Project</p>
-        <h1>Hello world.</h1>
-        <p>
-          This project starts from a minimal Vite + React + Cloudflare baseline.
-        </p>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_40%),_linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] px-6 py-12 text-slate-900">
+      <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-3xl items-center justify-center">
+        <section className="w-full rounded-[28px] border border-white/70 bg-white/85 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur md:p-12">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
+            Starter Project
+          </p>
+          <h1 className="mb-3 text-5xl font-semibold tracking-[-0.05em] text-slate-950 md:text-7xl">
+            Hello world.
+          </h1>
+          <p className="max-w-2xl text-base leading-7 text-slate-700 md:text-lg">
+            This project starts from a minimal Vite + React + Cloudflare baseline
+            with Tailwind CSS and common app utilities already wired up.
+          </p>
+        </section>
       </div>
     </main>
   );
 }
 `;
 
-const HELLO_WORLD_VITE_CSS = `:root {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+const HELLO_WORLD_VITE_CSS = `@import "tailwindcss";
+
+:root {
+  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
   color: #111827;
   background: #f3f4f6;
 }
@@ -206,6 +220,7 @@ const HELLO_WORLD_VITE_CSS = `:root {
 
 body {
   margin: 0;
+  min-width: 320px;
 }
 
 button,
@@ -214,45 +229,13 @@ textarea,
 select {
   font: inherit;
 }
+`;
 
-.app-shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 40%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-}
+const HELLO_WORLD_VITE_UTILS = `import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-.app-card {
-  width: min(560px, 100%);
-  padding: 32px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
-}
-
-.app-kicker {
-  margin: 0 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #2563eb;
-}
-
-h1 {
-  margin: 0 0 12px;
-  font-size: clamp(2.5rem, 6vw, 4rem);
-  line-height: 0.95;
-}
-
-p {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: #374151;
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
 }
 `;
 
@@ -473,6 +456,11 @@ Use this as the default starting point for new app projects when no richer templ
                         { path: 'src/index.css', type: 'file' },
                         { path: 'src/main.tsx', type: 'file' },
                         { path: 'src/vite-env.d.ts', type: 'file' },
+                        {
+                            path: 'src/lib',
+                            type: 'directory',
+                            children: [{ path: 'src/lib/utils.ts', type: 'file' }],
+                        },
                     ],
                 },
                 {
@@ -487,6 +475,7 @@ Use this as the default starting point for new app projects when no richer templ
             'package.json': HELLO_WORLD_VITE_PACKAGE_JSON,
             'src/App.tsx': HELLO_WORLD_VITE_APP,
             'src/index.css': HELLO_WORLD_VITE_CSS,
+            'src/lib/utils.ts': HELLO_WORLD_VITE_UTILS,
             'src/main.tsx': HELLO_WORLD_VITE_MAIN,
             'src/vite-env.d.ts': '/// <reference types="vite/client" />\n',
             'tsconfig.app.json': HELLO_WORLD_VITE_TSCONFIG_APP,
@@ -499,11 +488,13 @@ Use this as the default starting point for new app projects when no richer templ
         },
         language: 'typescript',
         deps: {
+            clsx: '^2.1.1',
             react: '^18.3.1',
             'react-dom': '^18.3.1',
+            'tailwind-merge': '^3.4.0',
         },
         projectType: 'app',
-        frameworks: ['cloudflare', 'react', 'typescript', 'vite'],
+        frameworks: ['cloudflare', 'react', 'tailwindcss', 'typescript', 'vite'],
         importantFiles: [
             'package.json',
             'vite.config.ts',
