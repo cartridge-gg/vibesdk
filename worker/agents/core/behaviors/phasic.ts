@@ -20,9 +20,7 @@ import { generateBlueprint } from '../../planning/blueprint';
 import { RateLimitExceededError } from 'shared/types/errors';
 import {  ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
-import { ConversationMessage } from '../../inferutils/common';
 import { generateNanoId } from 'worker/utils/idGenerator';
-import { IdGenerator } from '../../utils/idGenerator';
 import { BaseCodingBehavior, BaseCodingOperations } from './base';
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
@@ -441,21 +439,12 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
         // If issues/errors found, prompt user if they want to review and cleanup
         const issues = await this.fetchAllIssues(false);
-        if (issues.runtimeErrors.length > 0 || issues.staticAnalysis.typecheck.issues.length > 0) {
-            this.logger.info("Reviewing stage - issues found, prompting user to review and cleanup");
-            const message : ConversationMessage = {
-                role: "assistant",
-                content: `<system_context>If the user responds with yes, launch the 'deep_debug' tool with the prompt to fix all the issues in the app</system_context>\nThere might be some bugs in the app. Do you want me to try to fix them?`,
-                conversationId: IdGenerator.generateConversationId(),
-            }
-            // Store the message in the conversation history so user's response can trigger the deep debug tool
-            this.infrastructure.addConversationMessage(message);
-            
-            this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
-                message: message.content,
-                conversationId: message.conversationId,
-                isStreaming: false,
-            });
+        if (this.buildBlockingIssueSummary(issues)) {
+            this.logger.info('Reviewing stage - blocking issues found, starting automatic cleanup');
+            await this.autoFixBlockingIssues(
+                issues,
+                'I found a few blocking issues after generation. I’m fixing them automatically now.',
+            );
         }
 
         return CurrentDevState.IDLE;

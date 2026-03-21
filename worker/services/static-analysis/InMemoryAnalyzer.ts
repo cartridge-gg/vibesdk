@@ -3,6 +3,7 @@ import { JavaScriptAnalyzer } from './analyzers/JavaScriptAnalyzer';
 import { HTMLAnalyzer } from './analyzers/HTMLAnalyzer';
 import { CSSAnalyzer } from './analyzers/CSSAnalyzer';
 import { HTMLCSSCrossValidator } from './validators/HTMLCSSCrossValidator';
+import { JSImportCrossValidator } from './validators/JSImportCrossValidator';
 
 export class InMemoryAnalyzer implements IStaticAnalyzer {
 	private analyzers: LanguageAnalyzer[];
@@ -16,6 +17,7 @@ export class InMemoryAnalyzer implements IStaticAnalyzer {
 		];
 		this.crossValidators = [
 			new HTMLCSSCrossValidator(),
+			new JSImportCrossValidator(),
 		];
 	}
 

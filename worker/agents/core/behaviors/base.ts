@@ -47,6 +47,7 @@ import { generatePortToken } from 'worker/utils/cryptoUtils';
 import { getPreviewDomain, getProtocolForHost } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 import { InMemoryAnalyzer } from '../../../services/static-analysis';
+import { IdGenerator } from '../../utils/idGenerator';
 
 // Screenshot capture configuration
 const SCREENSHOT_CONFIG = {
@@ -603,10 +604,19 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             const templateDetails = this.getTemplateDetails();
             let analysisResponse: StaticAnalysisResponse;
 
-            if (templateDetails?.renderMode === 'browser') {
+            if (templateDetails?.renderMode === 'browser' || !this.state.sandboxInstanceId) {
                 analysisResponse = await this.runInMemoryAnalysis(files);
             } else {
-                analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+                try {
+                    analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+                } catch (error) {
+                    this.logger.warn('Sandbox static analysis unavailable, falling back to in-memory analysis', {
+                        error: error instanceof Error ? error.message : String(error),
+                        agentId: this.getAgentId(),
+                        sandboxInstanceId: this.state.sandboxInstanceId,
+                    });
+                    analysisResponse = await this.runInMemoryAnalysis(files);
+                }
             }
 
             // Only cache full (unscoped) analysis results
@@ -625,6 +635,124 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.broadcastError("Failed to lint code", error);
             return { success: false, lint: { issues: [], }, typecheck: { issues: [], } };
         }
+    }
+
+    protected async autoFixBlockingIssues(
+        issues: AllIssues,
+        introMessage: string = 'I found a few issues after generation. I’m fixing them now.',
+    ): Promise<DeepDebugResult | null> {
+        const issueSummary = this.buildBlockingIssueSummary(issues);
+        if (!issueSummary) {
+            return null;
+        }
+
+        const conversationId = IdGenerator.generateConversationId();
+        this.deepDebugConversationId = conversationId;
+
+        this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+            message: introMessage,
+            conversationId,
+            isStreaming: false,
+            tool: {
+                name: 'deep_debug',
+                status: 'start',
+                args: { issue: issueSummary, automatic: true },
+            },
+        });
+
+        const toolRenderer: RenderToolCall = (tool) => {
+            this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+                message: '',
+                conversationId,
+                isStreaming: false,
+                tool: {
+                    name: tool.name,
+                    status: tool.status,
+                    args: tool.args,
+                    result: tool.result,
+                },
+            });
+        };
+
+        const streamCb = (chunk: string) => {
+            this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+                message: chunk,
+                conversationId,
+                isStreaming: true,
+            });
+        };
+
+        const result = await this.executeDeepDebug(issueSummary, toolRenderer, streamCb);
+
+        this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+            message: '',
+            conversationId,
+            isStreaming: false,
+            tool: {
+                name: 'deep_debug',
+                status: result.success ? 'success' : 'error',
+                result: result.success
+                    ? 'Automatic validation fixes applied.'
+                    : result.error,
+            },
+        });
+
+        return result;
+    }
+
+    protected buildBlockingIssueSummary(issues: AllIssues): string | null {
+        const runtimeErrors = issues.runtimeErrors.filter(
+            (error) => !error.message.includes('runtime errors not available'),
+        );
+        const lintErrors = (issues.staticAnalysis.lint?.issues || []).filter(
+            (issue) => issue.severity === 'error',
+        );
+        const typeErrors = (issues.staticAnalysis.typecheck?.issues || []).filter(
+            (issue) => issue.severity === 'error',
+        );
+
+        if (runtimeErrors.length === 0 && lintErrors.length === 0 && typeErrors.length === 0) {
+            return null;
+        }
+
+        const parts: string[] = [
+            'Automatically fix all blocking issues found after code generation.',
+        ];
+
+        if (runtimeErrors.length > 0) {
+            parts.push(
+                `Runtime errors:\n${runtimeErrors
+                    .slice(0, 10)
+                    .map((error) => `- ${error.message}`)
+                    .join('\n')}`,
+            );
+        }
+
+        if (lintErrors.length > 0) {
+            parts.push(
+                `Static analysis errors:\n${lintErrors
+                    .slice(0, 10)
+                    .map(
+                        (issue) =>
+                            `- ${issue.filePath}:${issue.line}${issue.column != null ? `:${issue.column}` : ''} ${issue.message}`,
+                    )
+                    .join('\n')}`,
+            );
+        }
+
+        if (typeErrors.length > 0) {
+            parts.push(
+                `Type errors:\n${typeErrors
+                    .slice(0, 10)
+                    .map(
+                        (issue) =>
+                            `- ${issue.filePath}:${issue.line}${issue.column != null ? `:${issue.column}` : ''} ${issue.message}`,
+                    )
+                    .join('\n')}`,
+            );
+        }
+
+        return parts.join('\n\n');
     }
 
     /**
