@@ -1580,6 +1580,21 @@ class CloudflareDeploymentManager {
 	}
 
 	/**
+	 * Ensures Wrangler subprocesses receive the resolved Cloudflare credentials
+	 * even when they came from wrangler.jsonc instead of the parent shell env.
+	 */
+	private getWranglerProcessEnv(
+		overrides: NodeJS.ProcessEnv = {},
+	): NodeJS.ProcessEnv {
+		return {
+			...process.env,
+			CLOUDFLARE_API_TOKEN: this.env.CLOUDFLARE_API_TOKEN,
+			CLOUDFLARE_ACCOUNT_ID: this.env.CLOUDFLARE_ACCOUNT_ID,
+			...overrides,
+		};
+	}
+
+	/**
 	 * Deploys the project using Wrangler
 	 */
 	private async wranglerDeploy(): Promise<void> {
@@ -1589,6 +1604,7 @@ class CloudflareDeploymentManager {
 			execSync('wrangler deploy', {
 				stdio: 'inherit',
 				cwd: PROJECT_ROOT,
+				env: this.getWranglerProcessEnv(),
 			});
 
 			console.log('✅ Wrangler deployment completed');
@@ -1761,9 +1777,22 @@ class CloudflareDeploymentManager {
 			'# Essential Secrets:',
 		];
 
+		const resolvedProdVarDefaults: Record<string, string | undefined> = {
+			CLOUDFLARE_API_TOKEN: this.env.CLOUDFLARE_API_TOKEN,
+			CLOUDFLARE_ACCOUNT_ID: this.env.CLOUDFLARE_ACCOUNT_ID,
+			TEMPLATES_REPOSITORY: this.env.TEMPLATES_REPOSITORY,
+			CLOUDFLARE_AI_GATEWAY: this.env.CLOUDFLARE_AI_GATEWAY,
+			CUSTOM_DOMAIN: this.config.vars?.CUSTOM_DOMAIN,
+			CUSTOM_PREVIEW_DOMAIN: this.config.vars?.CUSTOM_PREVIEW_DOMAIN,
+			SANDBOX_INSTANCE_TYPE: this.config.vars?.SANDBOX_INSTANCE_TYPE,
+			DISPATCH_NAMESPACE: this.config.vars?.DISPATCH_NAMESPACE,
+			MAX_SANDBOX_INSTANCES: this.config.vars?.MAX_SANDBOX_INSTANCES,
+			ENVIRONMENT: process.env.ENVIRONMENT || 'prod',
+		};
+
 		// Add environment variables that are set
 		secretVars.forEach((varName) => {
-			let value = process.env[varName];
+			let value = process.env[varName] || resolvedProdVarDefaults[varName];
 			
 			// Apply fallback logic for CLOUDFLARE_AI_GATEWAY_TOKEN
 			if (varName === 'CLOUDFLARE_AI_GATEWAY_TOKEN' && (!value || value === '')) {
@@ -1841,6 +1870,7 @@ class CloudflareDeploymentManager {
 			execSync('wrangler secret bulk .prod.vars', {
 				stdio: 'inherit',
 				cwd: PROJECT_ROOT,
+				env: this.getWranglerProcessEnv(),
 			});
 
 			console.log('✅ Production secrets updated successfully');
@@ -1867,6 +1897,7 @@ class CloudflareDeploymentManager {
 				stdio: 'pipe',
 				cwd: PROJECT_ROOT,
 				encoding: 'utf8',
+				env: this.getWranglerProcessEnv(),
 			});
 
 			// If the command succeeds without error, dispatch namespaces are available
