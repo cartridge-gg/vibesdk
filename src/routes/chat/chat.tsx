@@ -756,6 +756,7 @@ export default function Chat() {
 									}}
 									chatId={chatId}
 									isDeploying={isDeploying}
+									deploymentUrl={cloudflareDeploymentUrl}
 									handleDeployToCloudflare={handleDeployToCloudflare}
 									runtimeErrorCount={runtimeErrorCount}
 									staticIssueCount={staticIssueCount}

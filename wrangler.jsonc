@@ -172,7 +172,6 @@
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
         "CLOUDFLARE_ACCOUNT_ID": "4d2c88979f064eaa52fed2d21cc26093",
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
-        "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         "CUSTOM_DOMAIN": "builtwithdojo.com",
         "CUSTOM_PREVIEW_DOMAIN": "builtwithdojo.com",
         "MAX_SANDBOX_INSTANCES": "10",

@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap, XCircle } from 'lucide-react';
+import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap, XCircle, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { RefObject } from 'react';
+import type { MouseEvent, RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
@@ -186,6 +186,7 @@ interface PhaseTimelineProps {
 	// Deployment functionality
 	chatId?: string;
 	isDeploying?: boolean;
+	deploymentUrl?: string;
 	handleDeployToCloudflare?: (instanceId: string) => void;
 	// Issue tracking and debugging
 	runtimeErrorCount?: number;
@@ -275,6 +276,7 @@ export function PhaseTimeline({
 	onViewChange,
 	chatId,
 	isDeploying,
+	deploymentUrl,
 	handleDeployToCloudflare,
 	runtimeErrorCount = 0,
 	staticIssueCount = 0,
@@ -378,6 +380,21 @@ export function PhaseTimeline({
 			};
 		}
 
+		if (deploymentUrl && !isDeploying) {
+			return {
+				text: 'Successfully deployed',
+				subtitle: (() => {
+					try {
+						return new URL(deploymentUrl).host;
+					} catch {
+						return deploymentUrl;
+					}
+				})(),
+				icon: <StatusCheck color="green" />,
+				badge: 'Live'
+			};
+		}
+
 		const lastCompletedPhase = getLastCompletedPhase(phaseTimeline);
 		if (lastCompletedPhase) {
 			return {
@@ -395,7 +412,7 @@ export function PhaseTimeline({
 			icon: <div className="w-4 h-4 bg-gradient-to-br from-zinc-300/30 to-zinc-400/20 dark:from-zinc-600/30 dark:to-zinc-700/20 rounded-full" />,
 			badge: undefined
 		};
-	}, [phaseTimeline, isThinkingNext, isPreviewDeploying, progress, total, projectStages]);
+	}, [deploymentUrl, isDeploying, phaseTimeline, isThinkingNext, isPreviewDeploying, progress, total, projectStages]);
 
 	const togglePhase = (phaseId: string) => {
 		setExpandedPhases(prev => {
@@ -414,6 +431,12 @@ export function PhaseTimeline({
 			parentScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
 		}
 	}, [parentScrollRef]);
+
+	const openDeployment = useCallback((event?: MouseEvent<HTMLElement>) => {
+		event?.stopPropagation();
+		if (!deploymentUrl) return;
+		window.open(deploymentUrl, '_blank', 'noopener,noreferrer');
+	}, [deploymentUrl]);
 
 	const getCurrentPhaseInfo = useMemo(() => {
 		const generatingPhase = getPhaseByStatus(phaseTimeline, 'generating');
@@ -530,23 +553,36 @@ export function PhaseTimeline({
                                     </div>
                                 )}
                                 {chatId && handleDeployToCloudflare && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeployToCloudflare(chatId);
-                                        }}
-                                        disabled={!!isDeploying}
-                                        className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
-                                        title={isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
-                                        aria-label={isDeploying ? 'Deploying' : 'Deploy to Cloudflare'}
-                                    >
-                                        {isDeploying ? (
-                                            <StatusLoader size="sm" color="accent" />
-                                        ) : (
-                                            <Zap className="w-3 h-3" />
-                                        )}
-                                        <span className="hidden sm:inline">{isDeploying ? 'Deploying...' : 'Deploy'}</span>
-                                    </button>
+                                    deploymentUrl && !isDeploying ? (
+                                        <button
+                                            onClick={openDeployment}
+                                            className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-full text-xs font-medium transition-colors"
+                                            title="Open live deployment"
+                                            aria-label="Open live deployment"
+                                        >
+                                            <Check className="w-3 h-3" />
+                                            <span className="hidden sm:inline">View Live</span>
+                                            <ExternalLink className="w-3 h-3" />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeployToCloudflare(chatId);
+                                            }}
+                                            disabled={!!isDeploying}
+                                            className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
+                                            title={isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
+                                            aria-label={isDeploying ? 'Deploying' : 'Deploy to Cloudflare'}
+                                        >
+                                            {isDeploying ? (
+                                                <StatusLoader size="sm" color="accent" />
+                                            ) : (
+                                                <Zap className="w-3 h-3" />
+                                            )}
+                                            <span className="hidden sm:inline">{isDeploying ? 'Deploying...' : 'Deploy'}</span>
+                                        </button>
+                                    )
                                 )}
                             </motion.div>
 
@@ -620,21 +656,32 @@ export function PhaseTimeline({
 												</button>
 
 												{chatId && handleDeployToCloudflare && (
-													<button
-														onClick={(e) => {
-															e.stopPropagation();
-															handleDeployToCloudflare(chatId);
-														}}
-														disabled={isDeploying}
-														className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
-													>
-														{isDeploying ? (
-															<StatusLoader size="sm" color="accent" />
-														) : (
-															<Zap className="w-3 h-3" />
-														)}
-														{isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
-													</button>
+													deploymentUrl && !isDeploying ? (
+														<button
+															onClick={openDeployment}
+															className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition-colors"
+														>
+															<Check className="w-3 h-3" />
+															View Live
+															<ExternalLink className="w-3 h-3" />
+														</button>
+													) : (
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																handleDeployToCloudflare(chatId);
+															}}
+															disabled={isDeploying}
+															className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
+														>
+															{isDeploying ? (
+																<StatusLoader size="sm" color="accent" />
+															) : (
+																<Zap className="w-3 h-3" />
+															)}
+															{isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
+														</button>
+													)
 												)}
 											</div>
 										</div>
