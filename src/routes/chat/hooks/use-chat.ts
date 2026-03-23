@@ -424,7 +424,7 @@ export function useChat({
 				handleConnectionFailureRef.current?.(wsUrl, disableGenerate, 'Connection setup failed');
 			}
 		},
-		[maxRetries, handleWebSocketMessage, urlChatId],
+		[maxRetries, handleWebSocketMessage],
 	);
 
 	// Handle connection failures with exponential backoff retry
@@ -539,6 +539,19 @@ export function useChat({
 
 					for await (const obj of ndjsonStream(response.stream)) {
                         logger.debug('Received chunk from server:', obj);
+						if (obj.error) {
+							const errorMessage =
+								typeof obj.error === 'string'
+									? obj.error
+									: 'Failed to initialize agent session';
+							setIsBootstrapping(false);
+							setIsGeneratingBlueprint(false);
+							updateStage(
+								startedBlueprintStream ? 'blueprint' : 'bootstrap',
+								{ status: 'error', metadata: errorMessage },
+							);
+							throw new Error(errorMessage);
+						}
 						if (obj.chunk) {
 							if (!startedBlueprintStream) {
 								sendMessage(createAIMessage('main', 'Blueprint is being generated...', true));
@@ -643,6 +656,20 @@ export function useChat({
 				if (error instanceof RateLimitExceededError) {
 					const rateLimitMessage = handleRateLimitError(error.details, onDebugMessage);
 					setMessages(prev => [...prev, rateLimitMessage]);
+				} else {
+					const errorMessage = error instanceof Error
+						? error.message
+						: 'Failed to initialize code generation';
+					setIsBootstrapping(false);
+					setIsGeneratingBlueprint(false);
+					sendMessage(createAIMessage('initialization_error', `❌ ${errorMessage}`));
+					toast.error(errorMessage);
+					onDebugMessage?.(
+						'error',
+						'Code Generation Initialization Failed',
+						errorMessage,
+						'Agent Initialization',
+					);
 				}
 			}
 		}

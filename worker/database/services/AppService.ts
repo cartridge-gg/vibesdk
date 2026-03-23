@@ -7,6 +7,7 @@ import * as schema from '../schema';
 import { eq, and, or, desc, asc, sql, isNull, inArray } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
+import { normalizeControllerAddress } from '../../services/auth/ControllerAuthService';
 import type {
     EnhancedAppData,
     AppWithFavoriteStatus,
@@ -33,6 +34,45 @@ type RankedAppQueryResult = {
     recentViews?: number;
     recentStars?: number;
 };
+
+type OwnershipUserRecord = Pick<
+    typeof schema.users.$inferSelect,
+    'id' | 'email' | 'provider' | 'providerId'
+>;
+
+function normalizeControllerAddressForComparison(address: string | null | undefined): string | null {
+    if (!address) {
+        return null;
+    }
+
+    try {
+        return normalizeControllerAddress(address);
+    } catch {
+        return address.toLowerCase();
+    }
+}
+
+function areEquivalentControllerUsers(
+    appOwner: OwnershipUserRecord | null,
+    currentUser: OwnershipUserRecord | null
+): boolean {
+    if (!appOwner || !currentUser) {
+        return false;
+    }
+
+    if (appOwner.provider !== 'controller' || currentUser.provider !== 'controller') {
+        return false;
+    }
+
+    const appOwnerAddress = normalizeControllerAddressForComparison(appOwner.providerId);
+    const currentUserAddress = normalizeControllerAddressForComparison(currentUser.providerId);
+
+    if (appOwnerAddress && currentUserAddress && appOwnerAddress === currentUserAddress) {
+        return true;
+    }
+
+    return appOwner.email.toLowerCase() === currentUser.email.toLowerCase();
+}
 
 export class AppService extends BaseService {
     private readonly RANKING_WEIGHTS = {
@@ -432,8 +472,8 @@ export class AppService extends BaseService {
      * Check if user owns an app and get visibility
      */
     async checkAppOwnership(appId: string, userId: string): Promise<OwnershipResult> {
-        // Use read replica for ownership checks
-        const readDb = this.getReadDb('fast');
+        // Ownership checks gate writes and websocket access, so prefer fresh data over replica speed.
+        const readDb = this.getReadDb('fresh');
         const app = await readDb
             .select({
                 id: schema.apps.id,
@@ -448,9 +488,38 @@ export class AppService extends BaseService {
             return { exists: false, isOwner: false };
         }
 
+        if (!app.userId) {
+            return {
+                exists: true,
+                isOwner: false,
+                visibility: app.visibility as 'private' | 'public' | null
+            };
+        }
+
+        if (app.userId === userId) {
+            return {
+                exists: true,
+                isOwner: true,
+                visibility: app.visibility as 'private' | 'public' | null
+            };
+        }
+
+        const ownershipUsers = await readDb
+            .select({
+                id: schema.users.id,
+                email: schema.users.email,
+                provider: schema.users.provider,
+                providerId: schema.users.providerId,
+            })
+            .from(schema.users)
+            .where(inArray(schema.users.id, [app.userId, userId]));
+
+        const appOwner = ownershipUsers.find((candidate) => candidate.id === app.userId) ?? null;
+        const currentUser = ownershipUsers.find((candidate) => candidate.id === userId) ?? null;
+
         return {
             exists: true,
-            isOwner: app.userId === userId,
+            isOwner: areEquivalentControllerUsers(appOwner, currentUser),
             visibility: app.visibility as 'private' | 'public' | null
         };
     }
@@ -554,7 +623,9 @@ export class AppService extends BaseService {
      * Get app details with stats
      */
     async getAppDetails(appId: string, userId?: string): Promise<EnhancedAppData | null> {
-        const readDb = this.getReadDb('fast');
+        // Single-app details are often fetched immediately after creation.
+        // Prefer fresher reads here to avoid transient 404s from replica lag.
+        const readDb = this.getReadDb('fresh');
         
         const appResult = await readDb
             .select({

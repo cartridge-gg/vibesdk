@@ -38,8 +38,15 @@ export class AppViewController extends BaseController {
             }
 
             // Check if user has permission to view
-            if (appResult.visibility === 'private' && appResult.userId !== userId) {
-                return AppViewController.createErrorResponse<AppDetailsData>('App not found', 404);
+            if (appResult.visibility === 'private') {
+                if (!userId) {
+                    return AppViewController.createErrorResponse<AppDetailsData>('App not found', 404);
+                }
+
+                const ownership = await appService.checkAppOwnership(appId, userId);
+                if (!ownership.isOwner) {
+                    return AppViewController.createErrorResponse<AppDetailsData>('App not found', 404);
+                }
             }
 
             // Track view for all users (including owners and anonymous users)

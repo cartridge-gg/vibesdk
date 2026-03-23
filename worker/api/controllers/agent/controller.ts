@@ -189,6 +189,15 @@ export class CodingAgentController extends BaseController {
                 agentInstance.startGeneration().catch((error: unknown) => {
                     this.logger.error(`Agent ${agentId} failed to auto-start generation`, error);
                 });
+            }).catch((error: unknown) => {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                this.logger.error(`Agent ${agentId} failed during initialization`, error);
+                writer.write({
+                    error: errorMessage,
+                    stage: 'initialization',
+                });
+                writer.write("terminate");
+                writer.close();
             });
 
             this.logger.info(`Agent ${agentId} init launched successfully`);

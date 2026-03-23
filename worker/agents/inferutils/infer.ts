@@ -19,6 +19,67 @@ The response you provided was either in an incorrect/unparsable format or was in
 Please provide a valid response that matches the expected output format exactly.
 `;
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function extractErrorStatus(error: unknown): number | undefined {
+	if (!isObjectRecord(error)) {
+		return undefined;
+	}
+
+	const status = error.status;
+	return typeof status === 'number' ? status : undefined;
+}
+
+function extractErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+
+	if (!isObjectRecord(error)) {
+		return String(error);
+	}
+
+	if (typeof error.message === 'string' && error.message.trim().length > 0) {
+		return error.message;
+	}
+
+	const nestedError = error.error;
+	if (isObjectRecord(nestedError) && typeof nestedError.message === 'string') {
+		return nestedError.message;
+	}
+
+	return JSON.stringify(error);
+}
+
+function formatInferenceFailureMessage(
+	agentActionName: AgentActionKey,
+	modelName: AIModels | string,
+	error: unknown,
+): string {
+	const rawMessage = extractErrorMessage(error);
+	const status = extractErrorStatus(error);
+	const provider = typeof modelName === 'string' && modelName.includes('/')
+		? modelName.split('/')[0]
+		: 'configured';
+	const actionLabel = agentActionName.replace(/([A-Z])/g, ' $1').toLowerCase();
+
+	if (status === 401 || /unauthorized|invalid api key|authentication error/i.test(rawMessage)) {
+		return `AI authentication failed while running ${actionLabel} with ${modelName}. The configured AI Gateway or ${provider} credentials were rejected. Please verify the AI Gateway URL/token and the ${provider} API key, then try again.`;
+	}
+
+	if (status === 403 || /forbidden|permission/i.test(rawMessage)) {
+		return `AI access was denied while running ${actionLabel} with ${modelName}. Please verify the configured AI Gateway and ${provider} permissions, then try again.`;
+	}
+
+	if (status === 404 || /model.*not found|not found/i.test(rawMessage)) {
+		return `The model ${modelName} was unavailable while running ${actionLabel}. Please choose a different model or fix the provider configuration, then try again.`;
+	}
+
+	return `AI request failed while running ${actionLabel} with ${modelName}: ${rawMessage}`;
+}
+
 /**
  * Resolves model configuration with field-by-field merge
  *
@@ -151,6 +212,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     const backoffMs = (attempt: number) => Math.min(500 * Math.pow(2, attempt), 10000);
 
     let useCheaperModel = false;
+    let lastError: unknown;
 
     for (let attempt = 0; attempt < retryLimit; attempt++) {
         try {
@@ -197,6 +259,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             // console.log(result);
             return result;
         } catch (error) {
+            lastError = error;
             if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
                 throw error;
             }
@@ -236,7 +299,14 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             }
         }
     }
-    return null;
+
+	throw new Error(
+		formatInferenceFailureMessage(
+			agentActionName,
+			modelName,
+			lastError ?? 'Unknown inference failure',
+		),
+	);
 }
 
 /**
