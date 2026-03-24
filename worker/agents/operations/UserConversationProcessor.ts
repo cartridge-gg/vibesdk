@@ -103,6 +103,7 @@ const SYSTEM_PROMPT = `You are Orange, the conversational AI interface for Cloud
   - queue_request: Queue modification requests for implementation in the next phase(s). Use for any feature/bug/change request.
   - get_logs: Fetch unread application logs from the sandbox to diagnose runtime issues.
   - deep_debug: Autonomous debugging assistant that investigates errors, reads files, runs commands, and applies targeted fixes. Use when users report bugs/errors that need immediate investigation and fixing. This transfers control to a specialized debugging agent. **LIMIT: You can only call deep_debug ONCE per conversation turn. If you need to debug again, ask the user first.**
+  - dojo_integrate: Specialized Dojo integration assistant. Use when the user explicitly wants Dojo, onchain authoritative state, Torii-backed realtime state, or Starknet-backed gameplay backend logic.
   - git: Version control operations (commit, log, show). Use to save work, view history, or inspect commits. For show command, use includeDiff=true to see actual code changes (line-by-line diffs), or omit it for just file list (faster). Note: reset command not available for safety.
   - wait_for_generation: Wait for code generation to complete. Use when deep_debug returns GENERATION_IN_PROGRESS error.
   - wait_for_debug: Wait for current debug session to complete. Use when deep_debug returns DEBUG_IN_PROGRESS error.
@@ -180,6 +181,8 @@ Users may face issues, bugs and runtime errors. You have TWO options:
     Queue the request via queue_request - the development agent will address it in the next phase. Then tell the user: "I'll fix this issue in the next phase or two."
 
     **DO NOT try to solve bugs yourself!** Use deep_debug for immediate fixes or queue_request for later implementation.
+
+For explicit Dojo backend requests, you may use dojo_integrate instead of queue_request when the user is asking for immediate Dojo/onchain integration work rather than a generic future feature request.
 
     ## CRITICAL - After Tool Execution:
     When a tool completes execution, you should respond based on what the tool returned:

@@ -18,6 +18,12 @@ describe('templates', () => {
 		expect(template.allFiles['vite.config.ts']).toContain(
 			"@tailwindcss/vite",
 		);
+		expect(template.allFiles['vite.config.ts']).toContain(
+			"vite-plugin-wasm",
+		);
+		expect(template.allFiles['vite.config.ts']).toContain(
+			"vite-plugin-top-level-await",
+		);
 		expect(template.allFiles['wrangler.jsonc']).toContain(
 			'"main": "worker/index.ts"',
 		);
@@ -34,7 +40,7 @@ describe('templates', () => {
 		expect(template.allFiles['worker/index.ts']).toContain('/api/health');
 	});
 
-	it('keeps the starter dependency set minimal but generator-friendly', () => {
+	it('includes controller and dojo-ready starter dependencies', () => {
 		const template = createHelloWorldViteTemplateDetails();
 		const packageJson = JSON.parse(template.allFiles['package.json']) as {
 			dependencies: Record<string, string>;
@@ -44,8 +50,15 @@ describe('templates', () => {
 		expect(packageJson.dependencies).toMatchObject({
 			'@cartridge/connector': '0.11.3-alpha.1',
 			'@cartridge/controller': '0.11.3-alpha.1',
+			'@dojoengine/core': '1.8.8',
+			'@dojoengine/create-burner': '1.8.10',
+			'@dojoengine/sdk': '1.9.0',
+			'@dojoengine/state': '1.8.5',
+			'@dojoengine/torii-client': '1.8.2',
+			'@dojoengine/utils': '1.8.4',
 			'@starknet-react/chains': '^5.0.3',
 			'@starknet-react/core': '^5.0.3',
+			'@tanstack/react-query': '^5.95.2',
 			clsx: '^2.1.1',
 			react: '^18.3.1',
 			'react-dom': '^18.3.1',
@@ -55,6 +68,8 @@ describe('templates', () => {
 		expect(packageJson.devDependencies).toMatchObject({
 			'@tailwindcss/vite': '^4.2.2',
 			tailwindcss: '^4.2.2',
+			'vite-plugin-top-level-await': '^1.6.0',
+			'vite-plugin-wasm': '^3.6.0',
 		});
 		expect(packageJson.devDependencies).not.toHaveProperty('eslint');
 		expect(template.description.usage).toContain(

@@ -37,6 +37,7 @@ import { createExecCommandsTool } from '../tools/toolkit/exec-commands';
 import { createWaitTool } from '../tools/toolkit/wait';
 import { createGitTool } from '../tools/toolkit/git';
 import { createGenerateImagesTool } from '../tools/toolkit/generate-images';
+import { createDojoIntegrateTool } from '../tools/toolkit/dojo-integrate';
 import { appendGamePlatformQuery } from '../utils/gamePlatform';
 
 export interface AgenticProjectBuilderInputs {
@@ -181,6 +182,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 			(context.templateDetails &&
 				context.templateDetails.name !== 'scratch');
 		const isPresentationProject = projectType === 'presentation';
+		const wantsDojoBackend =
+			/\bdojo\b|\bonchain\b|\btorii\b|\bkatana\b|\bsozo\b|\bworld\b/i.test(
+				inputs.query,
+			);
 		const needsSandbox =
 			!isPresentationProject && (hasTSX || projectType === 'app');
 
@@ -200,6 +205,9 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 				: '',
 			isPresentationProject
 				? '- Presentation mode: Use deploy_preview to sync slides. NO run_analysis needed. Focus on beautiful JSON slides, ask user for feedback.'
+				: '',
+			wantsDojoBackend
+				? '- Dojo requested: authoritative backend state must live in Dojo World models/systems. Call dojo_integrate early and avoid adding REST APIs, Durable Objects, or a second state source of truth for authoritative gameplay state.'
 				: '',
 			hasMD && !hasTSX
 				? '- Documents detected without UI: This is STATIC content - generate files in docs/, NO deploy_preview needed.'
@@ -296,6 +304,13 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 			createGitTool(session.agent, logger),
 			// WIP: images
 			createGenerateImagesTool(session.agent, logger),
+			createDojoIntegrateTool(
+				session.agent,
+				logger,
+				toolRenderer || (() => {}),
+				callbacks.streamCb || (() => {}),
+				{ allowDuringGeneration: true },
+			),
 		];
 
 		if (!inputs.selectedTemplate || inputs.selectedTemplate === 'scratch') {

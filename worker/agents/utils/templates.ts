@@ -19,8 +19,15 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
   "dependencies": {
     "@cartridge/connector": "0.11.3-alpha.1",
     "@cartridge/controller": "0.11.3-alpha.1",
+    "@dojoengine/core": "1.8.8",
+    "@dojoengine/create-burner": "1.8.10",
+    "@dojoengine/sdk": "1.9.0",
+    "@dojoengine/state": "1.8.5",
+    "@dojoengine/torii-client": "1.8.2",
+    "@dojoengine/utils": "1.8.4",
     "@starknet-react/chains": "^5.0.3",
     "@starknet-react/core": "^5.0.3",
+    "@tanstack/react-query": "^5.95.2",
     "clsx": "^2.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -38,6 +45,8 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "tailwindcss": "^4.2.2",
     "typescript": "5.8",
     "vite": "^6.3.1",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0",
     "wrangler": "^4.39.0"
   }
 }
@@ -63,9 +72,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
+import topLevelAwait from 'vite-plugin-top-level-await';
+import wasm from 'vite-plugin-wasm';
 
 export default defineConfig({
-  plugins: [react(), cloudflare(), tailwindcss()],
+  plugins: [react(), cloudflare(), tailwindcss(), wasm(), topLevelAwait()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
