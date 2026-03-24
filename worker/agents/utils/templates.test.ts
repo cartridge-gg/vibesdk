@@ -42,9 +42,14 @@ describe('templates', () => {
 		};
 
 		expect(packageJson.dependencies).toMatchObject({
+			'@cartridge/connector': '0.11.3-alpha.1',
+			'@cartridge/controller': '0.11.3-alpha.1',
+			'@starknet-react/chains': '^5.0.3',
+			'@starknet-react/core': '^5.0.3',
 			clsx: '^2.1.1',
 			react: '^18.3.1',
 			'react-dom': '^18.3.1',
+			starknet: '^8.9.2',
 			'tailwind-merge': '^3.4.0',
 		});
 		expect(packageJson.devDependencies).toMatchObject({

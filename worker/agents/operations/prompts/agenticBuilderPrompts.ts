@@ -70,6 +70,9 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 7. **Game Runtime Choice**: Build games with native React, browser events, requestAnimationFrame, CSS transforms, and plain TypeScript state by default. Do not introduce Phaser, PixiJS, Excalibur, Kaboom, Godot, or any other engine unless the user explicitly asks for one.
 
 8. **Controller Sign-In by Default**: Every game must include Cartridge Controller authentication using the platform's existing integration pattern. Ship a signed-out state plus a clear sign-in entry point or gate, and an authenticated game shell once connected.
+   - Use a single \`ControllerConnector\` created outside React components, wrap the app with \`StarknetConfig\` + \`cartridgeProvider()\` + \`autoConnect\`, and drive auth UI with \`useConnect\`, \`useAccount\`, and \`useDisconnect\`.
+   - If the game shell needs player identity in app state, mirror the connected address into the game's store; otherwise read it directly from the wallet hooks.
+   - The starter already includes \`@cartridge/connector\`, \`@cartridge/controller\`, \`@starknet-react/core\`, \`@starknet-react/chains\`, and \`starknet\`. Do not add install commands unless the user explicitly asks.
 
 9. **Browser-Local Gameplay by Default**: Unless the user explicitly asks for backend persistence, multiplayer coordination, or server APIs, keep gameplay state entirely in the browser with local in-memory or client-side state. Controller identity is still included by default.
 
