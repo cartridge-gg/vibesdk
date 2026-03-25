@@ -24,6 +24,7 @@ export interface CodeGenArgs {
 export interface AgentConnectionData {
     websocketUrl: string;
     agentId: string;
+    appStatus: 'generating' | 'completed';
 }
 
 export type AgentPreviewResponse = PreviewType;

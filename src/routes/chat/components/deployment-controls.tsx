@@ -8,7 +8,7 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface DeploymentControlsProps {
 	// Deployment state
-	isPhase1Complete: boolean;
+	isGenerationComplete: boolean;
 	isDeploying: boolean;
 	deploymentUrl?: string;
 	instanceId: string;
@@ -41,7 +41,7 @@ enum DeploymentState {
 }
 
 export function DeploymentControls({
-	isPhase1Complete,
+	isGenerationComplete,
 	isDeploying,
 	deploymentUrl,
 	instanceId,
@@ -90,7 +90,7 @@ export function DeploymentControls({
 			return DeploymentState.DEPLOYED;
 		}
 		
-		if (isPhase1Complete) {
+		if (isGenerationComplete) {
 			return DeploymentState.READY_TO_DEPLOY;
 		}
 		
@@ -156,7 +156,7 @@ export function DeploymentControls({
 					titleColor: "text-text-tertiary dark:text-text-tertiary",
 					subtitleColor: "text-text-tertiary/80 dark:text-text-tertiary/70",
 					title: "Deploy to Cloudflare",
-					subtitle: "Deploy will be enabled after Phase 1 is implemented",
+					subtitle: "Deploy will be enabled after generation passes final verification",
 					buttonDisabled: true,
 					buttonVariant: "secondary" as const,
 					buttonClass: "bg-bg-3 dark:bg-bg-3 text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
@@ -213,9 +213,9 @@ export function DeploymentControls({
 					subtitleColor: "text-red-600 dark:text-red-300",
 					title: "❌ Deployment Failed",
 					subtitle: "Error in deployment, please try again",
-					buttonDisabled: !isPhase1Complete,
+					buttonDisabled: !isGenerationComplete,
 					buttonVariant: "primary" as const,
-					buttonClass: isPhase1Complete 
+					buttonClass: isGenerationComplete 
 						? "bg-accent hover:bg-accent/90 text-white border-accent hover:scale-105"
 						: "bg-bg-3 dark:bg-bg-3 text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
 				};

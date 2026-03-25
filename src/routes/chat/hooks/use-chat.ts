@@ -134,6 +134,7 @@ export function useChat({
 	// const [lastDeploymentPhaseCount, setLastDeploymentPhaseCount] = useState(0);
 	const [isGenerationPaused, setIsGenerationPaused] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
+	const [isGenerationComplete, setIsGenerationComplete] = useState(false);
 
 	// Phase progress visual indicator (used to apply subtle throb on chat)
 	const [isPhaseProgressActive, setIsPhaseProgressActive] = useState(false);
@@ -214,6 +215,7 @@ export function useChat({
 			setDeploymentError,
 			setIsGenerationPaused,
 			setIsGenerating,
+			setIsGenerationComplete,
 			setIsPhaseProgressActive,
 			setRuntimeErrorCount,
 			setStaticIssueCount,
@@ -636,6 +638,7 @@ export function useChat({
 					}
 
 					logger.debug('Existing agentId API result', response.data);
+					setIsGenerationComplete(response.data.appStatus === 'completed');
 					// Set the chatId for existing chat - this enables the chat input
 					setChatId(urlChatId);
 
@@ -828,6 +831,7 @@ export function useChat({
 		isRedeployReady,
 		isGenerationPaused,
 		isGenerating,
+		isGenerationComplete,
 		handleStopGeneration,
 		handleResumeGeneration,
 		handleDeployToCloudflare,

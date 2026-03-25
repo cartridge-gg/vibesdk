@@ -55,6 +55,7 @@ export interface HandleMessageDeps {
     setDeploymentError: React.Dispatch<React.SetStateAction<string | undefined>>;
     setIsGenerationPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsGenerationComplete: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPhaseProgressActive: React.Dispatch<React.SetStateAction<boolean>>;
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
@@ -136,6 +137,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setDeploymentError,
             setIsGenerationPaused,
             setIsGenerating,
+            setIsGenerationComplete,
             setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
@@ -568,6 +570,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
+                setIsGenerationComplete(false);
                 break;
             }
 
@@ -582,6 +585,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
                 setIsGenerating(false);
+                setIsGenerationComplete(true);
                 break;
             }
 
@@ -732,7 +736,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'phase_implemented': {
                 sendMessage(createAIMessage('phase_implemented', message.message));
 
-                updateStage('code', { status: 'completed' });
+                updateStage('code', { status: 'active' });
                 setIsRedeployReady(true);
                 setIsPhaseProgressActive(false);
                 
@@ -777,6 +781,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'generation_stopped': {
                 setIsGenerating(false);
+                setIsGenerationComplete(false);
                 setIsGenerationPaused(true);
                 setIsDebugging(false);
                 
@@ -812,6 +817,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'generation_resumed': {
                 setIsGenerating(true);
+                setIsGenerationComplete(false);
                 setIsGenerationPaused(false);
                 sendMessage(createAIMessage('generation_resumed', message.message));
                 break;
@@ -1016,6 +1022,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 if (isTerminalGenerationError) {
                     setIsGenerating(false);
+                    setIsGenerationComplete(false);
                 }
 
                 setMessages(prev => [
