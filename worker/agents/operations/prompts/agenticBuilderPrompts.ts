@@ -74,25 +74,17 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - If the game shell needs player identity in app state, mirror the connected address into the game's store; otherwise read it directly from the wallet hooks.
    - The starter already includes \`@cartridge/connector\`, \`@cartridge/controller\`, \`@starknet-react/core\`, \`@starknet-react/chains\`, and \`starknet\`. Do not add install commands unless the user explicitly asks.
 
-9. **Browser-Local Gameplay by Default**: Unless the user explicitly asks for backend persistence, multiplayer coordination, or server APIs, keep gameplay state entirely in the browser with local in-memory or client-side state. Controller identity is still included by default.
-
-10. **Dojo Backend When Explicitly Requested**: If the user explicitly asks for Dojo, onchain backend state, Torii, or authoritative Starknet-backed gameplay state, use Dojo as the backend instead of adding REST APIs, databases, Durable Objects, or a separate state backend.
+9. **Dojo Backend By Default**: Authoritative gameplay state lives in Dojo by default instead of REST APIs, databases, Durable Objects, or a separate client-side source of truth.
+   - Always generate actual Cairo Dojo contracts for the authoritative gameplay state: create the World models, systems, manifests, and any required migration/build files.
    - Model authoritative state as Dojo World models and systems, use Sozo for build/migrate flows, Katana for local chain execution, and Torii for indexed queries and realtime subscriptions.
    - On the web client, initialize dojo.js exactly once, provide it through \`DojoSdkProvider\`, keep only transient presentation/UI state local, and avoid adding a second authoritative state library.
-   - When Dojo is requested, call \`dojo_integrate\` early so the Cairo workspace, client bindings, and provider wiring are established before implementing gameplay features.
+   - Call \`dojo_integrate\` early so the Cairo workspace, contracts, client bindings, and provider wiring are established before implementing gameplay features.
    - The starter already includes the Dojo web packages and Vite WASM support. The sandbox image includes the Dojo CLI toolchain needed for local development, including \`sozo\`, \`katana\`, and \`torii\`.
+   - Do not stop at schema design or “Dojo-ready” local state. The authoritative rules must be implemented in Cairo.
 
-11. **Design for Future Dojo Compatibility**: Even when not generating Cairo contracts yet, shape the game so it could later map cleanly onto Dojo's World/Models/Systems stack:
-   - Treat future authoritative gameplay state as small serializable ECS-style records with stable entity IDs or keys
-   - Express mutations as explicit commands or actions with deterministic state transitions and clear validation points
-   - Separate authority-critical state from derived UI state, animation, interpolation, particles, and other client-only presentation
-   - Emit or track meaningful domain events so future Torii indexing and subscriptions have a natural event surface
-   - Prefer atomic, transaction-shaped gameplay steps over mechanics that require per-frame onchain writes
-   - Make room for future optimistic UI and reconciliation against an authoritative state source
+10. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
 
-12. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
-
-13. **Keep Setup Minimal**: Use the simplest possible installation for every project. Do NOT add linting, formatting, git hooks, CI scaffolding, codegen, or other custom tooling unless the user explicitly asks for it. Prefer only the runtime dependencies strictly required to make the project work.
+11. **Keep Setup Minimal**: Use the simplest possible installation for every project. Do NOT add linting, formatting, git hooks, CI scaffolding, codegen, or other custom tooling unless the user explicitly asks for it. Prefer only the runtime dependencies strictly required to make the project work.
 </critical_rules>`;
 
 	const architecture = isPresentationProject
@@ -176,10 +168,10 @@ Solution: Call deploy_preview to sync virtual → sandbox
 6. **Test & Polish**: Fix all errors before completion → Ensure professional quality
 
 Static content (docs, markdown): avoid unless the user explicitly asks for supporting documentation instead of a playable game.
-Do not introduce database state, Durable Objects, KV, or backend APIs unless the user explicitly requires them.
+Do not introduce REST APIs, Durable Objects, KV, SQL databases, or alternate backend state stores.
 Always include the existing Cartridge Controller sign-in flow for games, and make sure the first-run user journey works both signed out and signed in.
-If the user explicitly asks for Dojo or onchain backend authority, call dojo_integrate early after template setup so the backend contract/client scaffolding is in place before gameplay features depend on it.
-When planning or implementing gameplay, explicitly decide what belongs to future authoritative state versus what is only presentational so later Dojo migration is straightforward.
+Call dojo_integrate early after template setup so the backend contracts, migrations, bindings, and client wiring are in place before gameplay features depend on them.
+Decide what belongs in authoritative onchain state versus local presentation state, then implement the authoritative portion in Cairo immediately rather than deferring it.
 </workflow>`;
 
 	const tools = `<tools>
@@ -356,12 +348,13 @@ You're empowered to design presentations that match the user's vision. Consider:
 - Runtime tested via preview
 - Edge cases considered
 
-## Dojo Readiness
+## Dojo Authority
 - Core rules are deterministic and isolated from rendering concerns
 - Entity identity is stable and serializable
 - Important state is modeled as small focused records instead of one giant mutable blob
 - Player actions map to explicit commands and produce clear state changes or events
 - High-frequency visuals are client-side only; authority-critical actions are coarse enough for transaction-based execution
+- These rules must be embodied in actual Cairo World models and systems, not only mirrored in client-side TypeScript
 
 ## Auth Expectations
 - Controller sign-in is present by default for every game

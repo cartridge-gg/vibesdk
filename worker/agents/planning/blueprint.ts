@@ -338,12 +338,13 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 - Prefer browser-first 2D games with a clear core loop, moment-to-moment interactions, progression hooks, and fast time-to-fun.
 - Every game must ship with Cartridge Controller authentication and a default sign-in experience using the existing platform integration pattern.
 - Blueprint the authenticated player journey explicitly: signed-out entry state, sign-in CTA or gate, authenticated game shell, and any account-dependent HUD/profile affordances.
-- Keep the architecture ready for later Dojo contract integration:
+- Keep the architecture transaction-friendly and Dojo-shaped:
   - isolate authoritative game rules into deterministic command handlers over serializable ECS-like state
-  - use stable entity IDs or keys and small focused state slices that could become Dojo models
+  - use stable entity IDs or keys and small focused state slices that map cleanly to Dojo models
   - define player interactions as explicit actions or commands and record meaningful domain events
   - distinguish authority-critical state from derived UI state, animation, VFX, and other client-only presentation
-  - prefer discrete, atomic gameplay steps that could map to World writes and Torii-indexed updates instead of per-frame onchain mutation
+  - prefer discrete, atomic gameplay steps that map cleanly to World writes and Torii-indexed updates instead of per-frame onchain mutation
+  - include actual Cairo World models and systems in the blueprint rather than leaving Dojo as a future integration
 - Choose the 2D runtime deliberately: Phaser for most games, PixiJS for renderer-first custom-loop experiences, Excalibur.js for TypeScript-first structured 2D games, Kaboom only for tiny prototypes, and avoid defaulting to Godot in this platform.`,
 	workflow: `## Workflow Project Context
 - Focus entirely on backend flows running on Cloudflare Workers (no UI/screens)

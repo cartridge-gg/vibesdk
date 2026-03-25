@@ -1208,8 +1208,8 @@ const GAME_INSTRUCTIONS = (
 ** Do not use Phaser, PixiJS, Excalibur.js, Kaboom, Godot, canvas engines, or any other game engine unless the user explicitly asks for one
 ** Keep the architecture simple and inspectable: separate game state, input handling, timing/loop helpers, and presentation components into clear boundaries
 ** Include Cartridge Controller sign-in by default using the existing platform integration pattern
-** Do not add actual Dojo contracts, Torii, Katana, persistence, or other backend systems unless the user explicitly asks for them
-** Still make the design Dojo-compatible: use stable entity IDs, small serializable state records, explicit commands, deterministic authoritative updates, and meaningful events
+** Always generate actual Cairo Dojo contracts plus the required Sozo/Katana/Torii and client wiring for authoritative gameplay behavior
+** Use stable entity IDs, small serializable state records, explicit commands, deterministic authoritative updates, and meaningful events across the Dojo-backed architecture
 ** Specify controls, game loop, scoring, progression, failure states, and restart conditions explicitly
 
 Use the following artistic style:

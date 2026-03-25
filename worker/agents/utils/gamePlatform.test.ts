@@ -31,7 +31,12 @@ describe('gamePlatform', () => {
 		expect(query).toContain('Platform requirements:');
 		expect(query).toContain('native React');
 		expect(query).toContain('Cartridge Controller sign-in by default');
-		expect(query).toContain('Dojo or onchain backend state');
+		expect(query).toContain(
+			'Use Dojo for authoritative state and realtime queries',
+		);
+		expect(query).toContain(
+			'Implement authoritative state in actual Cairo Dojo contracts',
+		);
 		expect(query).not.toContain('Phaser');
 		expect(appendGamePlatformQuery(query)).toBe(query);
 	});

@@ -49,7 +49,7 @@ ${templateInfo}
 }
 
 ## Required Outcome
-- If the user asked for an onchain or authoritative backend, move that authority to Dojo.
+- Move authoritative backend state to Dojo.
 - Keep the existing Controller-based auth path unless a file change is required to connect signing to Dojo transactions.
 - Prefer the smallest coherent Cairo + client integration that satisfies the requested backend behavior.
 
