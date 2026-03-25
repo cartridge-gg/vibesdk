@@ -591,7 +591,17 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         });
 
         if (!createResponse || !createResponse.success || !createResponse.runId) {
-            throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
+            logger.error('Sandbox instance creation failed', {
+                projectName,
+                filesCount: files.length,
+                envVarKeys: Object.keys(localEnvVars),
+                initCommand: 'bun run dev',
+                createResponse,
+            });
+
+            throw new Error(
+                `Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}; response=${JSON.stringify(createResponse)}`,
+            );
         }
 
         logger.info(`Created sandbox instance`, {
@@ -603,7 +613,17 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             return createResponse;
         }
 
-        throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
+        logger.error('Sandbox instance creation returned incomplete response', {
+            projectName,
+            filesCount: files.length,
+            envVarKeys: Object.keys(localEnvVars),
+            initCommand: 'bun run dev',
+            createResponse,
+        });
+
+        throw new Error(
+            `Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}; response=${JSON.stringify(createResponse)}`,
+        );
     }
 
     /**

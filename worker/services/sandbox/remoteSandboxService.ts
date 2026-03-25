@@ -80,10 +80,20 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
 
             if (!response.ok) {
                 const errorText = await response.text();
+                let parsedError: unknown = errorText;
+
+                try {
+                    parsedError = JSON.parse(errorText);
+                } catch {
+                    // Keep raw text when the upstream response is not JSON.
+                }
+
                 this.logger.error('Runner service request failed', { 
                     status: response.status, 
                     statusText: response.statusText, 
                     errorText,
+                    errorResponse: parsedError,
+                    responseHeaders: Object.fromEntries(response.headers.entries()),
                     url 
                 });
                 return {

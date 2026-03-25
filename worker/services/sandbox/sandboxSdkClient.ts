@@ -1076,7 +1076,13 @@ export class SandboxSdkClient extends BaseSandboxService {
                 processId: results.processId,
             };
         } catch (error) {
-            this.logger.error(`Failed to create instance for project ${projectName}`, error);
+            this.logger.error(`Failed to create instance for project ${projectName}`, {
+                error,
+                projectName,
+                filesCount: files.length,
+                initCommand,
+                envVarKeys: Object.keys(envVars || {}),
+            });
             return {
                 success: false,
                 error: `Failed to create instance: ${error instanceof Error ? error.message : 'Unknown error'}`
