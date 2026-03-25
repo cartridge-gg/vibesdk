@@ -256,6 +256,7 @@ ${isPresentationProject ? '[Note: For presentations, deploy_preview updates the 
 - When: After deploy_preview, catch errors before runtime testing
 - Requires: Sandbox must exist
 - Rule: Treat lint-only findings as low priority unless they block functionality or the user explicitly asked for linting/tooling
+- Completion rule: \`run_analysis\` is necessary but not sufficient. Before \`mark_generation_complete\`, you must also run \`bun run build\` via \`exec_commands\` and resolve any build failures.
 
 **get_runtime_errors** - Fetch runtime exceptions from sandbox
 - Where: Sandbox environment
@@ -285,6 +286,7 @@ ${isPresentationProject ? '[Note: For presentations, deploy_preview updates the 
 **mark_generation_complete** - Signal initial project completion
 - When: All features implemented, errors fixed, testing done
 - Requires: summary (2-3 sentences), filesGenerated (count)
+- Hard gate: For interactive projects, do not call this until the latest deployed code passes \`run_analysis\`, \`bun run build\`, and shows no blocking runtime errors.
 - Critical: Make NO further tool calls after calling this
 - Note: Only for initial generation - NOT for follow-up requests
 </tools>`;
@@ -473,14 +475,17 @@ Tool Calls:
 7. deploy_preview()
 
 8. run_analysis()
-   → Check for TypeScript errors
+   → Check for TypeScript and lint errors
 
-9. git("commit", "feat: add initial game loop and ui shell")
+9. exec_commands(["bun run build"], shouldSave=false)
+   → Confirm the app actually compiles
 
-10. get_runtime_errors()
+10. git("commit", "feat: add initial game loop and ui shell")
+
+11. get_runtime_errors()
    → Verify no runtime issues
 
-11. mark_generation_complete({
+12. mark_generation_complete({
      summary: "Created a playable 2D puzzle game with scoring, restart flow, and a native React gameplay architecture.",
      filesGenerated: 8
    })

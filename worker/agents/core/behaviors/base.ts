@@ -435,6 +435,115 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.state.mvpGenerated;
     }
 
+    private getBlockingStaticIssues(staticAnalysis: StaticAnalysisResponse) {
+        return {
+            lintIssues: (staticAnalysis.lint?.issues || []).filter(
+                (issue) => issue.severity === 'error',
+            ),
+            typecheckIssues: (staticAnalysis.typecheck?.issues || []).filter(
+                (issue) => issue.severity === 'error',
+            ),
+        };
+    }
+
+    protected async verifyProjectBeforeCompletion(): Promise<void> {
+        await this.ensureTemplateDetails();
+
+        const templateDetails = this.getTemplateDetails();
+        const isBrowserOnly = templateDetails?.renderMode === 'browser';
+
+        if (this.isPreviewable()) {
+            const preview = await this.deployToSandbox([], false, undefined, true);
+            if (!preview) {
+                throw new Error(
+                    'Final verification failed: preview deployment did not succeed.',
+                );
+            }
+        }
+
+        const issues = await this.fetchAllIssues(true);
+        const runtimeErrors = issues.runtimeErrors.filter(
+            (error) => !error.message.includes('runtime errors not available'),
+        );
+        const { lintIssues, typecheckIssues } = this.getBlockingStaticIssues(
+            issues.staticAnalysis,
+        );
+
+        let buildFailure: string | null = null;
+
+        if (!isBrowserOnly && this.state.sandboxInstanceId) {
+            const buildResponse = await this.execCommands(
+                ['bun run build'],
+                false,
+                120000,
+            );
+            const failedBuild = buildResponse.results.find((result) => !result.success);
+
+            if (!buildResponse.success || failedBuild) {
+                buildFailure = (
+                    failedBuild?.error ||
+                    failedBuild?.output ||
+                    buildResponse.error ||
+                    'bun run build failed'
+                ).trim();
+            }
+        }
+
+        if (
+            !buildFailure &&
+            lintIssues.length === 0 &&
+            typecheckIssues.length === 0 &&
+            runtimeErrors.length === 0
+        ) {
+            return;
+        }
+
+        const formatIssues = (
+            entries: Array<{
+                filePath?: string;
+                line?: number;
+                column?: number | null;
+                message: string;
+            }>,
+        ) =>
+            entries
+                .slice(0, 10)
+                .map((entry) => {
+                    const location = entry.filePath
+                        ? `${entry.filePath}:${entry.line || 0}${entry.column != null ? `:${entry.column}` : ''}`
+                        : 'unknown';
+                    return `- ${location} ${entry.message}`;
+                })
+                .join('\n');
+
+        const parts = [
+            'Final verification failed. The app is not ready to report as done yet.',
+        ];
+
+        if (buildFailure) {
+            parts.push(`Build failed:\n${buildFailure.slice(0, 4000)}`);
+        }
+
+        if (typecheckIssues.length > 0) {
+            parts.push(`Type errors:\n${formatIssues(typecheckIssues)}`);
+        }
+
+        if (lintIssues.length > 0) {
+            parts.push(`Lint errors:\n${formatIssues(lintIssues)}`);
+        }
+
+        if (runtimeErrors.length > 0) {
+            parts.push(
+                `Runtime errors:\n${runtimeErrors
+                    .slice(0, 10)
+                    .map((error) => `- ${error.message}`)
+                    .join('\n')}`,
+            );
+        }
+
+        throw new Error(parts.join('\n\n'));
+    }
+
     private async buildWrapper() {
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
@@ -444,8 +553,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             totalFiles: this.getTotalFiles()
         });
         await this.ensureTemplateDetails();
+        let completedSuccessfully = false;
         try {
             await this.build();
+            await this.verifyProjectBeforeCompletion();
+            completedSuccessfully = true;
         } catch (error) {
             if (error instanceof RateLimitExceededError) {
                 this.logger.error("Error in state machine:", error);
@@ -456,19 +568,23 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         } finally {
             // Clear abort controller after generation completes
             this.clearAbortController();
-            
-            const appService = new AppService(this.env);
-            await appService.updateApp(
-                this.getAgentId(),
-                {
-                    status: 'completed',
-                }
-            );
+
+            if (completedSuccessfully) {
+                const appService = new AppService(this.env);
+                await appService.updateApp(
+                    this.getAgentId(),
+                    {
+                        status: 'completed',
+                    }
+                );
+            }
             this.generationPromise = null;
-            this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
-                message: "Code generation and review process completed.",
-                instanceId: this.state.sandboxInstanceId,
-            });
+            if (completedSuccessfully) {
+                this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
+                    message: "Code generation and review process completed.",
+                    instanceId: this.state.sandboxInstanceId,
+                });
+            }
         }
     }
     
