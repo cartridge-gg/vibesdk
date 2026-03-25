@@ -1,7 +1,6 @@
-FROM docker.io/cloudflare/sandbox:0.7.20 AS sandbox_runtime
-FROM docker.io/ubuntu:24.04
-
-ARG TARGETARCH
+ARG SANDBOX_PLATFORM=linux/amd64
+FROM --platform=${SANDBOX_PLATFORM} docker.io/cloudflare/sandbox:0.7.20 AS sandbox_runtime
+FROM --platform=${SANDBOX_PLATFORM} docker.io/ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SANDBOX_VERSION=0.7.20
 ENV PYTHON_POOL_MIN_SIZE=0
@@ -17,10 +16,10 @@ RUN apt-get update && \
         update-ca-certificates && \
         sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf && \
         mkdir -p /workspace /workspace/container /workspace/data /container-server && \
-        case ${TARGETARCH} in \
+        case "$(dpkg --print-architecture)" in \
             "amd64") ARCH="amd64" ;; \
             "arm64") ARCH="arm64" ;; \
-            *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1 ;; \
+            *) echo "Unsupported architecture: $(dpkg --print-architecture)"; exit 1 ;; \
         esac && \
         curl -L -k --output cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" && \
         chmod +x cloudflared && \
@@ -57,10 +56,10 @@ RUN which bunx || ln -sf $(which bun) /usr/local/bin/bunx
 # Install tsc via bunx
 RUN bunx tsc --version
 
-RUN case ${TARGETARCH} in \
+RUN case "$(dpkg --print-architecture)" in \
             "amd64") ARCH="amd64" ;; \
             "arm64") ARCH="arm64" ;; \
-            *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1 ;; \
+            *) echo "Unsupported architecture: $(dpkg --print-architecture)"; exit 1 ;; \
         esac && \
         curl -fsSL -o /tmp/dojo.tar.gz "https://github.com/dojoengine/dojo/releases/download/v1.8.0/dojo_v1.8.0_linux_${ARCH}.tar.gz" && \
         tar -xzf /tmp/dojo.tar.gz -C /usr/local/bin sozo && \
@@ -98,5 +97,5 @@ EXPOSE 3000
 
 ENTRYPOINT ["/container-server/sandbox"]
 
-# Use startup script
-CMD ["./startup.sh"]
+# Keep the sandbox process alive; sessions run user commands on demand.
+CMD ["sleep", "infinity"]
