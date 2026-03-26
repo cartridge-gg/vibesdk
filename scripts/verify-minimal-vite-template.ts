@@ -168,10 +168,40 @@ function run(command: string, args: string[], cwd: string): void {
 	});
 }
 
+function runInSandbox(tempDir: string): void {
+	const sandboxImage = process.env.SANDBOX_IMAGE ?? 'vibesdk-sandbox-test';
+	const sandboxPlatform = process.env.SANDBOX_PLATFORM ?? 'linux/amd64';
+
+	console.log(
+		`Running minimal Vite template smoke verification inside sandbox image ${sandboxImage} (${sandboxPlatform}).`,
+	);
+
+	run(
+		'docker',
+		[
+			'run',
+			'--rm',
+			'--platform',
+			sandboxPlatform,
+			'--entrypoint',
+			'bash',
+			'-v',
+			`${tempDir}:/workspace/app`,
+			'-w',
+			'/workspace/app',
+			sandboxImage,
+			'-lc',
+			'rm -rf node_modules bun.lockb bun.lock && bun install && bun run build',
+		],
+		process.cwd(),
+	);
+}
+
 function main(): void {
 	const template = createHelloWorldViteTemplateDetails();
 	const tempDir = mkdtempSync(join(tmpdir(), 'vibesdk-minimal-vite-'));
 	const keepFixture = process.env.KEEP_TEMPLATE_FIXTURE === '1';
+	const verifyInSandbox = process.env.VERIFY_IN_SANDBOX === '1';
 
 	try {
 		writeFiles(tempDir, template.allFiles);
@@ -180,6 +210,9 @@ function main(): void {
 		console.log(`Template fixture written to ${tempDir}`);
 		run('bun', ['install'], tempDir);
 		run('bun', ['run', 'build'], tempDir);
+		if (verifyInSandbox) {
+			runInSandbox(tempDir);
+		}
 		console.log('Minimal Vite template smoke verification passed.');
 	} finally {
 		if (!keepFixture) {
