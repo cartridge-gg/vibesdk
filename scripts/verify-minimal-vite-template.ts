@@ -87,7 +87,18 @@ export function StarknetProvider({ children }: { children: ReactNode }) {
 	);
 }
 `,
+	'src/lib/dojo.ts': `import { ControllerConnector } from '@cartridge/connector';
+import { DojoSdkProvider } from '@dojoengine/sdk/react';
+import { ToriiClient } from '@dojoengine/torii-client';
+
+export const dojoImportSmoke = {
+	controllerConnectorName: ControllerConnector.name,
+	dojoSdkProviderName: DojoSdkProvider.name,
+	toriiClientName: ToriiClient.name,
+};
+`,
 	'src/App.tsx': `import { ConnectWallet } from './components/ConnectWallet';
+import { dojoImportSmoke } from './lib/dojo';
 
 export default function App() {
 	return (
@@ -104,9 +115,15 @@ export default function App() {
 							</h1>
 							<p className="text-base leading-7 text-slate-700 md:text-lg">
 								This smoke fixture proves the built-in starter can mount React,
-								wrap StarknetConfig, compile the Cartridge Controller flow, and
-								still ship as a normal Cloudflare + Vite app.
+								wrap StarknetConfig, compile the Cartridge Controller flow,
+								resolve public Dojo package entrypoints, and still ship as a
+								normal Cloudflare + Vite app.
 							</p>
+							<div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+								<span>{dojoImportSmoke.controllerConnectorName}</span>
+								<span>{dojoImportSmoke.dojoSdkProviderName}</span>
+								<span>{dojoImportSmoke.toriiClientName}</span>
+							</div>
 						</div>
 						<ConnectWallet />
 					</div>

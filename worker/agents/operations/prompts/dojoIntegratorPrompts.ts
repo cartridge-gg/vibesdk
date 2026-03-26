@@ -23,6 +23,9 @@ Convert the project's authoritative backend state to the Dojo stack with the sma
 - Generate TypeScript bindings from Sozo outputs instead of hand-writing contract bindings when the project structure supports it.
 - If the current project lacks Dojo-ready Vite/WASM configuration or dependencies, add only what is strictly required.
 - Do not invent a separate backend abstraction layer that duplicates World / Torii responsibilities.
+- Use only public package entrypoints for third-party dependencies. Never import from package internals like \`/dist/*\`, \`/src/*\`, or \`/lib/*\`.
+- Valid examples: \`@cartridge/connector\` or \`@cartridge/connector/controller\`, \`@dojoengine/torii-client\`, and \`@dojoengine/sdk/react\`.
+- Invalid examples: \`@cartridge/connector/dist/controller\` and \`@dojoengine/torii-client/dist/client\`.
 
 ## Verification
 - After making file changes, prefer run_analysis first.

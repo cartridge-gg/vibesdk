@@ -74,6 +74,7 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - If the game shell needs player identity in app state, mirror the connected address into the game's store; otherwise read it directly from the wallet hooks.
    - The starter already includes \`@cartridge/connector\`, \`@cartridge/controller\`, \`@starknet-react/core\`, \`@starknet-react/chains\`, and \`starknet\`. Do not add install commands unless the user explicitly asks.
    - Keep those starter package versions pinned exactly as provided unless the user explicitly requests an upgrade. Do not loosen them to caret ranges or swap in alternative wallet/auth stacks.
+   - Use only public package entrypoints. Valid imports include \`@cartridge/connector\` and \`@cartridge/connector/controller\`. Never deep-import \`@cartridge/connector/dist/*\`, \`/src/*\`, or other package internals.
 
 9. **Dojo Backend By Default**: Authoritative gameplay state lives in Dojo by default instead of REST APIs, databases, Durable Objects, or a separate client-side source of truth.
    - Always generate actual Cairo Dojo contracts for the authoritative gameplay state: create the World models, systems, manifests, and any required migration/build files.
@@ -82,6 +83,7 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - Call \`dojo_integrate\` early so the Cairo workspace, contracts, client bindings, and provider wiring are established before implementing gameplay features.
    - The starter already includes the Dojo web packages and Vite WASM support. The sandbox image includes the Dojo CLI toolchain needed for local development, including \`sozo\`, \`katana\`, and \`torii\`.
    - Do not stop at schema design or “Dojo-ready” local state. The authoritative rules must be implemented in Cairo.
+   - Use only public Dojo package entrypoints such as \`@dojoengine/torii-client\` and \`@dojoengine/sdk/react\`. Never deep-import package internals like \`@dojoengine/torii-client/dist/client\`.
 
 10. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
 
