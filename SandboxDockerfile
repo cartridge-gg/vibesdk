@@ -93,7 +93,7 @@ ENV VITE_LOGGER_TYPE=json
 # # Reset workdir
 WORKDIR /container-server
 
-EXPOSE 3000
+EXPOSE 3000 8001-8999
 
 ENTRYPOINT ["/container-server/sandbox"]
 
