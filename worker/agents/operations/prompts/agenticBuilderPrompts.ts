@@ -73,6 +73,7 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - Use a single \`ControllerConnector\` created outside React components, wrap the app with \`StarknetConfig\` + \`cartridgeProvider()\` + \`autoConnect\`, and drive auth UI with \`useConnect\`, \`useAccount\`, and \`useDisconnect\`.
    - If the game shell needs player identity in app state, mirror the connected address into the game's store; otherwise read it directly from the wallet hooks.
    - The starter already includes \`@cartridge/connector\`, \`@cartridge/controller\`, \`@starknet-react/core\`, \`@starknet-react/chains\`, and \`starknet\`. Do not add install commands unless the user explicitly asks.
+   - Keep those starter package versions pinned exactly as provided unless the user explicitly requests an upgrade. Do not loosen them to caret ranges or swap in alternative wallet/auth stacks.
 
 9. **Dojo Backend By Default**: Authoritative gameplay state lives in Dojo by default instead of REST APIs, databases, Durable Objects, or a separate client-side source of truth.
    - Always generate actual Cairo Dojo contracts for the authoritative gameplay state: create the World models, systems, manifests, and any required migration/build files.

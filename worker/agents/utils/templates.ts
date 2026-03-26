@@ -25,13 +25,13 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "@dojoengine/state": "1.8.5",
     "@dojoengine/torii-client": "1.8.2",
     "@dojoengine/utils": "1.8.4",
-    "@starknet-react/chains": "^5.0.3",
-    "@starknet-react/core": "^5.0.3",
+    "@starknet-react/chains": "5.0.3",
+    "@starknet-react/core": "5.0.3",
     "@tanstack/react-query": "^5.95.2",
     "clsx": "^2.1.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "starknet": "^8.9.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "starknet": "8.9.2",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
@@ -39,12 +39,13 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "@tailwindcss/vite": "^4.2.2",
     "@cloudflare/workers-types": "^4.20250424.0",
     "@types/node": "^22.15.3",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.2",
     "tailwindcss": "^4.2.2",
     "typescript": "5.8",
-    "vite": "^6.3.1",
+    "vite": "npm:rolldown-vite@7.1.13",
+    "vite-plugin-node-polyfills": "^0.23.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.6.0",
     "wrangler": "^4.39.0"
@@ -72,11 +73,26 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import wasm from 'vite-plugin-wasm';
 
 export default defineConfig({
-  plugins: [react(), cloudflare(), tailwindcss(), wasm(), topLevelAwait()],
+  plugins: [
+    react(),
+    cloudflare(),
+    tailwindcss(),
+    wasm(),
+    topLevelAwait(),
+    nodePolyfills({
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+      protocolImports: true,
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -173,7 +189,12 @@ const HELLO_WORLD_VITE_TSCONFIG_NODE = `{
     "noEmit": true,
     "strict": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "vite-plugin-node-polyfills.d.ts"]
+}
+`;
+
+const HELLO_WORLD_VITE_NODE_POLYFILLS_TYPES = `declare module 'vite-plugin-node-polyfills' {
+  export function nodePolyfills(options?: unknown): unknown;
 }
 `;
 
@@ -465,6 +486,7 @@ Use this as the default starting point for new app projects when no richer templ
                 { path: 'tsconfig.node.json', type: 'file' },
                 { path: 'tsconfig.worker.json', type: 'file' },
                 { path: 'vite.config.ts', type: 'file' },
+                { path: 'vite-plugin-node-polyfills.d.ts', type: 'file' },
                 { path: 'wrangler.jsonc', type: 'file' },
                 {
                     path: 'src',
@@ -501,6 +523,8 @@ Use this as the default starting point for new app projects when no richer templ
             'tsconfig.node.json': HELLO_WORLD_VITE_TSCONFIG_NODE,
             'tsconfig.worker.json': HELLO_WORLD_VITE_TSCONFIG_WORKER,
             'vite.config.ts': HELLO_WORLD_VITE_CONFIG,
+            'vite-plugin-node-polyfills.d.ts':
+                HELLO_WORLD_VITE_NODE_POLYFILLS_TYPES,
             'worker/index.ts': HELLO_WORLD_VITE_WORKER,
             'wrangler.jsonc': HELLO_WORLD_VITE_WRANGLER_CONFIG,
         },

@@ -24,6 +24,12 @@ describe('templates', () => {
 		expect(template.allFiles['vite.config.ts']).toContain(
 			"vite-plugin-top-level-await",
 		);
+		expect(template.allFiles['vite.config.ts']).toContain(
+			"vite-plugin-node-polyfills",
+		);
+		expect(template.allFiles['vite-plugin-node-polyfills.d.ts']).toContain(
+			"declare module 'vite-plugin-node-polyfills'",
+		);
 		expect(template.allFiles['wrangler.jsonc']).toContain(
 			'"main": "worker/index.ts"',
 		);
@@ -56,18 +62,23 @@ describe('templates', () => {
 			'@dojoengine/state': '1.8.5',
 			'@dojoengine/torii-client': '1.8.2',
 			'@dojoengine/utils': '1.8.4',
-			'@starknet-react/chains': '^5.0.3',
-			'@starknet-react/core': '^5.0.3',
+			'@starknet-react/chains': '5.0.3',
+			'@starknet-react/core': '5.0.3',
 			'@tanstack/react-query': '^5.95.2',
 			clsx: '^2.1.1',
-			react: '^18.3.1',
-			'react-dom': '^18.3.1',
-			starknet: '^8.9.2',
+			react: '19.2.3',
+			'react-dom': '19.2.3',
+			starknet: '8.9.2',
 			'tailwind-merge': '^3.4.0',
 		});
 		expect(packageJson.devDependencies).toMatchObject({
 			'@tailwindcss/vite': '^4.2.2',
+			'@types/react': '19.2.7',
+			'@types/react-dom': '19.2.3',
+			'@vitejs/plugin-react': '5.1.2',
 			tailwindcss: '^4.2.2',
+			vite: 'npm:rolldown-vite@7.1.13',
+			'vite-plugin-node-polyfills': '^0.23.0',
 			'vite-plugin-top-level-await': '^1.6.0',
 			'vite-plugin-wasm': '^3.6.0',
 		});
