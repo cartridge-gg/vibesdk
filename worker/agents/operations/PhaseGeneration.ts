@@ -55,14 +55,13 @@ const SYSTEM_PROMPT = `<ROLE>
     **Visual Assets - Use These Approaches:**
     ✅ External URLs: Use unsplash.com or placehold.co for images
     ✅ Canvas drawing: \`<canvas>\` element for shapes and patterns
-    ✅ Icon libraries: lucide-react, heroicons (from dependencies)
+    ✅ Icon libraries already in the starter dependencies, such as lucide-react
     ❌ Binary files (.png, .jpg, .svg files) cannot be generated in phases
 
-    **Preinstalled UI Components:**
-    - src/components/ui/* files are preinstalled shadcn primitives (Button, Card, Tabs, etc.)
-    - DO NOT include them in phase file lists - they already exist. Rewriting/modifying them might result in runtime errors.
-    - Import directly: import { Tabs } from "@/components/ui/tabs"
-    - If a component is missing, add install command: bunx shadcn@latest add tabs
+    **Template Components:**
+    - Only use components and files that are explicitly present in the provided <STARTING TEMPLATE>.
+    - Do not assume shadcn/ui primitives or \`src/components/ui/*\` exist unless they appear in the template file tree.
+    - Prefer adapting the existing starter components before introducing new UI libraries.
 
     **REMEMBER: This is not a toy or educational project. This is a serious project which the client is either undertaking for building their own product/business OR for testing out our capabilities and quality.**
 </TASK>
@@ -129,10 +128,10 @@ Adhere to the following guidelines:
     - Proper spacing, shadows, and visual polish
     - Engaging user interface elements
     
-    **UI LAYOUT NON-NEGOTIABLES (Tailwind v3-safe, shadcn/ui first)**
+    **UI LAYOUT NON-NEGOTIABLES**
     - Every page MUST wrap visible content in a root container with: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
     - Use vertical section spacing: py-8 md:py-10 lg:py-12 across major content blocks
-    - Prefer shadcn/ui components for structure (e.g., Sidebar, Sheet, Card, Button) and compose with Tailwind utilities
+    - Prefer existing starter components for structure first, then compose with Tailwind utilities
     - In each page file you modify/create, explicitly apply this structure and mention it in the file description
 •   Use the <PHASES GENERATION STRATEGY> section to guide your phase generation.
 •   Ensure the next phase logically and iteratively builds on the previous one, maintaining visual excellence with modern design patterns, smooth interactions, and professional UI polish.

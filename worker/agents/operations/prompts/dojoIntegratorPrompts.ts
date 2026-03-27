@@ -14,6 +14,7 @@ Convert the project's authoritative backend state to the Dojo stack with the sma
 - Use Sozo for build and migrate flows, Katana for local chain execution, and Torii for indexed reads plus realtime subscriptions.
 - Use dojo.js on the client. Initialize the SDK exactly once, pass it through DojoSdkProvider, and consume indexed state through the SDK and Torii-backed hooks.
 - If starknet-react / Cartridge Controller is present, keep wallet signing there and wire Dojo around that provider structure rather than inventing a parallel auth stack.
+- The built-in starter already ships a working Dojo scaffold with \`Scarb.toml\`, migration config, \`manifest_dev.json\`, \`src/models.cairo\`, \`src/systems/actions.cairo\`, and \`src/lib/dojo.tsx\`. Adapt those files first instead of recreating the stack from scratch.
 - Keep only transient UI state local: hover state, modal state, camera state, animation state, optimistic presentation, and input buffers.
 - Prefer small, explicit models and transaction-shaped systems over giant catch-all contracts or per-frame onchain writes.
 
@@ -25,7 +26,7 @@ Convert the project's authoritative backend state to the Dojo stack with the sma
 - Do not invent a separate backend abstraction layer that duplicates World / Torii responsibilities.
 - Use only public package entrypoints for third-party dependencies. Never import from package internals like \`/dist/*\`, \`/src/*\`, or \`/lib/*\`.
 - Valid examples: \`@cartridge/connector\` or \`@cartridge/connector/controller\`, \`@dojoengine/torii-client\`, and \`@dojoengine/sdk/react\`.
-- Invalid examples: \`@cartridge/connector/dist/controller\` and \`@dojoengine/torii-client/dist/client\`.
+- Invalid examples: \`@cartridge/connector/dist/controller\`, \`@dojoengine/torii-client/dist/client\`, and nonexistent packages like \`@dojoengine/torii\`.
 
 ## Verification
 - After making file changes, prefer run_analysis first.

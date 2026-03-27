@@ -77,13 +77,15 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - Use only public package entrypoints. Valid imports include \`@cartridge/connector\` and \`@cartridge/connector/controller\`. Never deep-import \`@cartridge/connector/dist/*\`, \`/src/*\`, or other package internals.
 
 9. **Dojo Backend By Default**: Authoritative gameplay state lives in Dojo by default instead of REST APIs, databases, Durable Objects, or a separate client-side source of truth.
-   - Always generate actual Cairo Dojo contracts for the authoritative gameplay state: create the World models, systems, manifests, and any required migration/build files.
+   - Always generate actual Cairo Dojo contracts for the authoritative gameplay state: create or adapt the World models, systems, manifests, and any required migration/build files.
    - Model authoritative state as Dojo World models and systems, use Sozo for build/migrate flows, Katana for local chain execution, and Torii for indexed queries and realtime subscriptions.
    - On the web client, initialize dojo.js exactly once, provide it through \`DojoSdkProvider\`, keep only transient presentation/UI state local, and avoid adding a second authoritative state library.
    - Call \`dojo_integrate\` early so the Cairo workspace, contracts, client bindings, and provider wiring are established before implementing gameplay features.
-   - The starter already includes the Dojo web packages and Vite WASM support. The sandbox image includes the Dojo CLI toolchain needed for local development, including \`sozo\`, \`katana\`, and \`torii\`.
+   - The built-in starter already includes a working Dojo scaffold: \`Scarb.toml\`, \`dojo_dev.toml\`, \`torii_dev.toml\`, \`manifest_dev.json\`, \`src/models.cairo\`, \`src/systems/actions.cairo\`, \`src/lib/dojo.tsx\`, and Vite WASM support. Adapt those files first instead of reinstalling or recreating the stack.
+   - The sandbox image includes the Dojo CLI toolchain needed for local development, including \`sozo\`, \`katana\`, and \`torii\`. Do not add install commands for those tools.
    - Do not stop at schema design or “Dojo-ready” local state. The authoritative rules must be implemented in Cairo.
    - Use only public Dojo package entrypoints such as \`@dojoengine/torii-client\` and \`@dojoengine/sdk/react\`. Never deep-import package internals like \`@dojoengine/torii-client/dist/client\`.
+   - Never suggest or install nonexistent Dojo packages such as \`@dojoengine/torii\`. If Torii client access is needed, use the already-installed \`@dojoengine/torii-client\`.
 
 10. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
 

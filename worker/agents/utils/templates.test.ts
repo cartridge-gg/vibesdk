@@ -6,12 +6,30 @@ import {
 } from './templates';
 
 describe('templates', () => {
-	it('builds the hello-world vite starter with real scaffold files', () => {
+	it('builds the minimal-vite starter as a real Dojo scaffold', () => {
 		const template = createHelloWorldViteTemplateDetails();
 
 		expect(template.name).toBe(BUILTIN_MINIMAL_VITE_TEMPLATE_NAME);
 		expect(template.projectType).toBe('app');
-		expect(template.allFiles['package.json']).toContain('"dev": "vite');
+		expect(template.description.selection).toContain('Dojo-ready');
+		expect(template.description.usage).toContain(
+			'working Dojo + Cartridge clicker example',
+		);
+		expect(template.description.usage).toContain(
+			'src/systems/actions.cairo',
+		);
+		expect(template.allFiles['package.json']).toContain(
+			'"dev": "bash ./scripts/dev.sh"',
+		);
+		expect(template.allFiles['package.json']).toContain(
+			'"dojo:check": "bash ./scripts/dojo-check.sh"',
+		);
+		expect(template.allFiles['package.json']).toContain(
+			'"lucide-react": "0.541.0"',
+		);
+		expect(template.allFiles['package.json']).toContain(
+			'"@walletconnect/types": "2.23.2"',
+		);
 		expect(template.allFiles['vite.config.ts']).toContain(
 			"@cloudflare/vite-plugin",
 		);
@@ -30,15 +48,8 @@ describe('templates', () => {
 		expect(template.allFiles['wrangler.jsonc']).toContain(
 			'"main": "worker/index.ts"',
 		);
-		expect(template.allFiles['src/App.tsx']).toContain('Hello world.');
-		expect(template.allFiles['src/App.tsx']).toContain(
-			'without any engine assumptions',
-		);
-		expect(template.allFiles['src/index.css']).toContain(
-			'@import "tailwindcss";',
-		);
 		expect(template.allFiles['src/main.tsx']).toContain(
-			'<StarknetProvider>',
+			'<DojoProviderRoot>',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'StarknetConfig',
@@ -46,10 +57,30 @@ describe('templates', () => {
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'ControllerConnector',
 		);
-		expect(template.allFiles['src/lib/utils.ts']).toContain(
-			"export function cn",
+		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
+			'DojoSdkProvider',
 		);
-		expect(template.allFiles['worker/index.ts']).toContain('/api/health');
+		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
+			'createDojoConfig',
+		);
+		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
+			'A working onchain clicker baseline',
+		);
+		expect(template.allFiles['src/components/ConnectWallet.tsx']).toContain(
+			'Connect Cartridge Controller',
+		);
+		expect(template.allFiles['Scarb.toml']).toContain('name = "vibes_clicker"');
+		expect(template.allFiles['src/models.cairo']).toContain(
+			'pub struct ClickerPlayer',
+		);
+		expect(template.allFiles['src/systems/actions.cairo']).toContain(
+			'fn buy_upgrade',
+		);
+		expect(template.allFiles['scripts/dev.sh']).toContain('sozo migrate');
+		expect(template.allFiles['scripts/dev.sh']).toContain('torii --world');
+		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
+			'wait_for_http "http://127.0.0.1:8080"',
+		);
 	});
 
 	it('includes controller and dojo-ready starter dependencies', () => {
@@ -57,6 +88,7 @@ describe('templates', () => {
 		const packageJson = JSON.parse(template.allFiles['package.json']) as {
 			dependencies: Record<string, string>;
 			devDependencies: Record<string, string>;
+			overrides: Record<string, string>;
 		};
 
 		expect(packageJson.dependencies).toMatchObject({
@@ -72,6 +104,7 @@ describe('templates', () => {
 			'@starknet-react/core': '5.0.3',
 			'@tanstack/react-query': '^5.95.2',
 			clsx: '^2.1.1',
+			'lucide-react': '0.541.0',
 			react: '19.2.4',
 			'react-dom': '19.2.4',
 			starknet: '8.9.2',
@@ -87,16 +120,15 @@ describe('templates', () => {
 			'vite-plugin-top-level-await': '^1.6.0',
 			'vite-plugin-wasm': '^3.6.0',
 		});
+		expect(packageJson.overrides).toMatchObject({
+			'@walletconnect/types': '2.23.2',
+		});
 		expect(packageJson.devDependencies).not.toHaveProperty('eslint');
-		expect(template.description.usage).toContain(
-			'native React components, hooks, and browser APIs',
-		);
 	});
 
 	it('returns built-in templates by name', () => {
 		expect(
-			getBuiltInTemplateDetails(BUILTIN_MINIMAL_VITE_TEMPLATE_NAME)
-				?.name,
+			getBuiltInTemplateDetails(BUILTIN_MINIMAL_VITE_TEMPLATE_NAME)?.name,
 		).toBe(BUILTIN_MINIMAL_VITE_TEMPLATE_NAME);
 		expect(getBuiltInTemplateDetails('does-not-exist')).toBeNull();
 	});

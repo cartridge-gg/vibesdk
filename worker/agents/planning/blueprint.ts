@@ -193,7 +193,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     ✅ External image URLs: Use unsplash.com or placehold.co for images
     ✅ Canvas drawings: \`<canvas>\` element for shapes, patterns, charts
     ✅ Simple SVG inline: \`<svg><circle cx="50" cy="50" r="40" fill="blue" /></svg>\`
-    ✅ Icon libraries: lucide-react, heroicons (specify in frameworks)
+    ✅ Icon libraries already present in the template or explicitly listed in frameworks
     ❌ Never: .png, .jpg, .svg, .gif files in phase files list
     Binary files cannot be generated. Always use the approaches above for visual content.
     Do not recommend installing \`cloudflare:workers\` or \`cloudflare:durable-objects\` as dependencies, these are already installed in the project always.
@@ -210,11 +210,11 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
         - Recommend sophisticated icon libraries, illustration sets, and visual assets
         - Plan for visual upgrades to existing template components
     • **COMPREHENSIVE ASSET STRATEGY:** In the \`frameworks\` section, suggest:
-        - **Icon Libraries:** Lucide React, Heroicons, React Icons for comprehensive icon coverage
+        - **Icon Libraries:** Lucide React or other icon libraries only when they are already installed or explicitly added
         - **Animation Libraries:** Framer Motion, React Spring for smooth interactions
         - **Visual Enhancement:** Packages for gradients, patterns, visual effects
         - **Image/Media:** Optimization and display libraries for beautiful media presentation
-    • **SHADCN DESIGN SYSTEM:** Build exclusively with shadcn/ui components, but enhance them with:
+    • **TEMPLATE-FIRST COMPONENT STRATEGY:** Build on the components and primitives that already exist in the starting template, then enhance them with:
         - Beautiful color variants and visual treatments
         - Sophisticated hover and interactive states
         - Consistent spacing and visual rhythm
@@ -231,7 +231,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
         - Beautiful responsive behaviors at all breakpoints
     **RECOMMENDED VISUAL ENHANCEMENT FRAMEWORKS:**
     - **UI/Animation:** framer-motion, react-spring, @radix-ui/react-*
-    - **Icons:** lucide-react, @radix-ui/react-icons, heroicons
+    - **Icons:** lucide-react or other icon libraries only if they are already installed or explicitly planned as new dependencies
     - **Visual Effects:** react-intersection-observer, react-parallax
     - **Charts/Data Viz:** recharts, @tremor/react (if data visualization needed)
     - **Media/Images:** react-image-gallery or vanilla <img>; prefer aspect-video / aspect-[16/9] and object-cover; avoid Next.js-only APIs
