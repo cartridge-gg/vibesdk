@@ -41,6 +41,76 @@ export async function runnerFetch(url: string, method: 'GET' | 'POST' | 'DELETE'
     return await fetch(url, { method, headers, body });
 }
 
+const UPSTREAM_REFERENCE_REGEX = /reference\s*=\s*([a-z0-9]+)/i;
+const UPSTREAM_REFERENCE_HEADERS = [
+    'x-request-id',
+    'x-trace-id',
+    'traceparent',
+    'cf-ray',
+    'x-correlation-id',
+];
+
+function truncateForLogs(value: string, maxLength: number = 1000): string {
+    if (value.length <= maxLength) {
+        return value;
+    }
+
+    return `${value.slice(0, maxLength)}...[truncated ${value.length - maxLength} chars]`;
+}
+
+export function extractUpstreamReference(body: string, responseHeaders: Record<string, string>): string | undefined {
+    const bodyReference = body.match(UPSTREAM_REFERENCE_REGEX)?.[1];
+    if (bodyReference) {
+        return bodyReference;
+    }
+
+    for (const headerName of UPSTREAM_REFERENCE_HEADERS) {
+        const headerValue = responseHeaders[headerName];
+        if (headerValue) {
+            return headerValue;
+        }
+    }
+
+    return undefined;
+}
+
+export function formatUpstreamError(params: {
+    endpoint: string;
+    method: 'GET' | 'POST' | 'DELETE';
+    status: number;
+    statusText: string;
+    body: string;
+    responseHeaders: Record<string, string>;
+}) {
+    const upstreamReference = extractUpstreamReference(params.body, params.responseHeaders);
+    const truncatedBody = truncateForLogs(params.body);
+    const parts = [
+        `Runner service ${params.method} ${params.endpoint} failed`,
+        `status=${params.status}`,
+    ];
+
+    if (params.statusText) {
+        parts.push(`statusText=${params.statusText}`);
+    }
+
+    if (upstreamReference) {
+        parts.push(`reference=${upstreamReference}`);
+    }
+
+    if (truncatedBody) {
+        parts.push(`body=${truncatedBody}`);
+    }
+
+    return {
+        error: parts.join('; '),
+        upstreamStatus: params.status,
+        upstreamStatusText: params.statusText,
+        upstreamBody: truncatedBody,
+        upstreamHeaders: params.responseHeaders,
+        upstreamReference,
+    };
+}
+
 /**
  * Client for interacting with the Runner Service API.
  */
@@ -81,6 +151,7 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
             if (!response.ok) {
                 const errorText = await response.text();
                 let parsedError: unknown = errorText;
+                const responseHeaders = Object.fromEntries(response.headers.entries());
 
                 try {
                     parsedError = JSON.parse(errorText);
@@ -88,17 +159,26 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
                     // Keep raw text when the upstream response is not JSON.
                 }
 
+                const upstreamError = formatUpstreamError({
+                    endpoint,
+                    method,
+                    status: response.status,
+                    statusText: response.statusText,
+                    body: errorText,
+                    responseHeaders,
+                });
+
                 this.logger.error('Runner service request failed', { 
                     status: response.status, 
                     statusText: response.statusText, 
                     errorText,
                     errorResponse: parsedError,
-                    responseHeaders: Object.fromEntries(response.headers.entries()),
+                    responseHeaders,
                     url 
                 });
                 return {
                     success: false,
-                    error: errorText
+                    ...upstreamError,
                 };
             }
 
@@ -110,7 +190,7 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
                 this.logger.error('Failed to validate response from runner service', validation.error.errors, { url, responseData });
                 return {
                     success: false,
-                    error: "Failed to validate response"
+                    error: `Failed to validate runner service response for ${method} ${endpoint}`
                 };
             }
 
@@ -120,7 +200,7 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
             this.logger.error('Error making request to runner service', error, { url });
             return {
                 success: false,
-                error: "Failed to validate response"
+                error: `Runner service request failed for ${method} ${endpoint}: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
         }
     }
