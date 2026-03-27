@@ -987,9 +987,10 @@ export class SandboxSdkClient extends BaseSandboxService {
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
             }
 
-            this.logger.info('Installing dependencies', { instanceId });
+            const dependencyInstallTimeoutMs = 180000;
+            this.logger.info('Installing dependencies', { instanceId, dependencyInstallTimeoutMs });
             const [installResult, tunnelURL] = await Promise.all([
-                this.executeCommand(instanceId, `bun install`, { timeout: 40000 }),
+                this.executeCommand(instanceId, `bun install`, { timeout: dependencyInstallTimeoutMs }),
                 tunnelUrlPromise
             ]);
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
