@@ -588,14 +588,19 @@ export class SandboxSdkClient extends BaseSandboxService {
     /**
      * Waits for the development server to be ready by monitoring logs for readiness indicators
      */
-    private async waitForServerReady(instanceId: string, processId: string, maxWaitTimeMs: number = 10000): Promise<boolean> {
+    private async waitForServerReady(
+        instanceId: string,
+        processId: string,
+        port: number,
+        maxWaitTimeMs: number = 120000,
+    ): Promise<boolean> {
         const startTime = Date.now();
-        const pollIntervalMs = 500;
+        const pollIntervalMs = 2000;
         const maxAttempts = Math.ceil(maxWaitTimeMs / pollIntervalMs);
         
-        // Patterns that indicate the server is ready
+        // Patterns that indicate Vite specifically is ready. Avoid generic HTTP URLs because
+        // the Dojo bootstrap prints Katana/Torii endpoints long before the app port is live.
         const readinessPatterns = [
-            /http:\/\/[^\s]+/,           // Any HTTP URL (most reliable)
             /ready in \d+/i,             // Vite "ready in X ms"
             /Local:\s+http/i,            // Vite local server line
             /Network:\s+http/i,          // Vite network server line
@@ -603,22 +608,52 @@ export class SandboxSdkClient extends BaseSandboxService {
             /listening on/i              // Generic listening message
         ];
 
-        this.logger.info('Waiting for development server', { instanceId, processId, timeoutMs: maxWaitTimeMs });
+        this.logger.info('Waiting for development server', {
+            instanceId,
+            processId,
+            port,
+            timeoutMs: maxWaitTimeMs,
+        });
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Get recent logs only to avoid processing old content
-                const logsResult = await this.getLogs(instanceId, true);
-                
-                if (logsResult.success && logsResult.logs.stdout) {
-                    const logs = logsResult.logs.stdout;
+                const probeResult = await this.executeCommand(
+                    instanceId,
+                    `timeout 2s curl -I -sS http://127.0.0.1:${port}/ >/dev/null`,
+                    { timeout: 5000 },
+                );
+
+                if (probeResult.exitCode === 0) {
+                    const elapsedTime = Date.now() - startTime;
+                    this.logger.info('Development server ready via HTTP probe', {
+                        instanceId,
+                        port,
+                        elapsedTimeMs: elapsedTime,
+                        attempts: `${attempt}/${maxAttempts}`,
+                    });
+                    return true;
+                }
+
+                // Pull logs periodically for signal, but avoid doing it on every failed probe
+                // because each CLI call is also logged by the sandbox runtime.
+                if (attempt === 1 || attempt % 5 === 0) {
+                    const logsResult = await this.getLogs(instanceId, true);
                     
-                    // Check for any readiness pattern
-                    for (const pattern of readinessPatterns) {
-                        if (pattern.test(logs)) {
-                            const elapsedTime = Date.now() - startTime;
-                            this.logger.info('Development server ready', { instanceId, elapsedTimeMs: elapsedTime, attempts: `${attempt}/${maxAttempts}` });
-                            return true;
+                    if (logsResult.success && logsResult.logs.stdout) {
+                        const logs = logsResult.logs.stdout;
+                        
+                        // Check for any readiness pattern
+                        for (const pattern of readinessPatterns) {
+                            if (pattern.test(logs)) {
+                                const elapsedTime = Date.now() - startTime;
+                                this.logger.info('Development server ready via logs', {
+                                    instanceId,
+                                    port,
+                                    elapsedTimeMs: elapsedTime,
+                                    attempts: `${attempt}/${maxAttempts}`,
+                                });
+                                return true;
+                            }
                         }
                     }
                 }
@@ -656,15 +691,17 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             // Wait for the server to be ready (non-blocking - always returns the process ID)
             try {
-                const isReady = await this.waitForServerReady(instanceId, process.id, 10000);
+                const isReady = await this.waitForServerReady(instanceId, process.id, port);
                 if (isReady) {
                     this.logger.info('Development server is ready', { instanceId });
                 } else {
-                    this.logger.warn('Development server may not be fully ready', { instanceId });
+                    throw new Error(
+                        `Development server did not start listening on port ${port} within the readiness window`,
+                    );
                 }
             } catch (readinessError) {
                 this.logger.warn(`Error during readiness check for ${instanceId}:`, readinessError);
-                this.logger.info('Continuing with server startup despite readiness check error', { instanceId });
+                throw readinessError;
             }
             
             return process.id;
