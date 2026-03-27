@@ -82,6 +82,9 @@ export enum AllocationStrategy {
     MANY_TO_ONE = 'many_to_one',
     ONE_TO_ONE = 'one_to_one',
 }
+
+const DEFAULT_PREVIEW_PORT = 8001;
+const SHARED_SANDBOX_PREVIEW_PORTS = Array.from({ length: 10 }, (_, index) => DEFAULT_PREVIEW_PORT + index);
   
 function getAutoAllocatedSandbox(sessionId: string): string {
     // Distribute sessions across available containers using consistent hashing
@@ -441,34 +444,46 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     private async allocateAvailablePort(excludedPorts: number[] = [3000]): Promise<number> {
+        const portCandidates = env.ALLOCATION_STRATEGY === AllocationStrategy.MANY_TO_ONE
+            ? SHARED_SANDBOX_PREVIEW_PORTS
+            : [DEFAULT_PREVIEW_PORT];
+        const availableCandidates = portCandidates.filter((port) => !excludedPorts.includes(port));
+
+        if (availableCandidates.length === 0) {
+            throw new Error(`No preview ports available from configured candidates: ${portCandidates.join(', ')}`);
+        }
+
+        if (availableCandidates.length === 1) {
+            const allocatedPort = availableCandidates[0];
+            this.logger.info(`Allocated dedicated preview port: ${allocatedPort}`);
+            return allocatedPort;
+        }
+
         const startTime = Date.now();
-        const excludeList = excludedPorts.join(' ');
-        
-        // Single command to find first available port in dev range (8001-8999)
+        const candidateList = availableCandidates.join(' ');
         const findPortCmd = `
-            for port in $(seq 8001 8999); do
-                if ! echo "${excludeList}" | grep -q "\\\\b$port\\\\b" && 
-                   ! netstat -tuln 2>/dev/null | grep -q ":$port " && 
+            for port in ${candidateList}; do
+                if ! netstat -tuln 2>/dev/null | grep -q ":$port " &&
                    ! ss -tuln 2>/dev/null | grep -q ":$port "; then
                     echo $port
                     break
                 fi
             done
         `;
-        
+
         const result = await this.safeSandboxExec(findPortCmd.trim());
         const endTime = Date.now();
         const duration = (endTime - startTime) / 1000;
-        this.logger.info(`Port allocation took ${duration} seconds`);
-        
+        this.logger.info(`Port allocation took ${duration} seconds`, { candidates: availableCandidates });
+
         const portStr = result.stdout.trim();
         if (portStr) {
             const port = parseInt(portStr);
             this.logger.info(`Allocated available port: ${port}`);
             return port;
         }
-        
-        throw new Error('No available ports found in range 8001-8999');
+
+        throw new Error(`No available ports found in configured range: ${availableCandidates.join(', ')}`);
     }
     
     private async buildFileTree(instanceId: string): Promise<FileTreeNode | undefined> {
