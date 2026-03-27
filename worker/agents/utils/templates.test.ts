@@ -37,6 +37,15 @@ describe('templates', () => {
 		expect(template.allFiles['src/index.css']).toContain(
 			'@import "tailwindcss";',
 		);
+		expect(template.allFiles['src/main.tsx']).toContain(
+			'<StarknetProvider>',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'StarknetConfig',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'ControllerConnector',
+		);
 		expect(template.allFiles['src/lib/utils.ts']).toContain(
 			"export function cn",
 		);

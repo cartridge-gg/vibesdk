@@ -198,12 +198,45 @@ const HELLO_WORLD_VITE_MAIN = `import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { StarknetProvider } from './starknet';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <StarknetProvider>
+      <App />
+    </StarknetProvider>
   </StrictMode>,
 );
+`;
+
+const HELLO_WORLD_VITE_STARKNET = `import type { ReactNode } from 'react';
+import { ControllerConnector } from '@cartridge/connector';
+import { mainnet, sepolia } from '@starknet-react/chains';
+import {
+  StarknetConfig,
+  cartridge,
+  cartridgeProvider,
+} from '@starknet-react/core';
+
+export const controllerConnector = new ControllerConnector({
+  lazyload: true,
+  signupOptions: ['webauthn'],
+});
+
+export function StarknetProvider({ children }: { children: ReactNode }) {
+  return (
+    <StarknetConfig
+      autoConnect
+      chains={[mainnet, sepolia]}
+      defaultChainId={sepolia.id}
+      provider={cartridgeProvider()}
+      connectors={[controllerConnector]}
+      explorer={cartridge}
+    >
+      {children}
+    </StarknetConfig>
+  );
+}
 `;
 
 const HELLO_WORLD_VITE_APP = `export default function App() {
@@ -479,6 +512,7 @@ Use this as the default starting point for new app projects when no richer templ
                         { path: 'src/App.tsx', type: 'file' },
                         { path: 'src/index.css', type: 'file' },
                         { path: 'src/main.tsx', type: 'file' },
+                        { path: 'src/starknet.tsx', type: 'file' },
                         { path: 'src/vite-env.d.ts', type: 'file' },
                         {
                             path: 'src/lib',
@@ -501,6 +535,7 @@ Use this as the default starting point for new app projects when no richer templ
             'src/index.css': HELLO_WORLD_VITE_CSS,
             'src/lib/utils.ts': HELLO_WORLD_VITE_UTILS,
             'src/main.tsx': HELLO_WORLD_VITE_MAIN,
+            'src/starknet.tsx': HELLO_WORLD_VITE_STARKNET,
             'src/vite-env.d.ts': '/// <reference types="vite/client" />\n',
             'tsconfig.app.json': HELLO_WORLD_VITE_TSCONFIG_APP,
             'tsconfig.json': HELLO_WORLD_VITE_TSCONFIG,

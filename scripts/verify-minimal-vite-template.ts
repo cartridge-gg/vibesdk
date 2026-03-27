@@ -58,35 +58,6 @@ export function ConnectWallet() {
 	);
 }
 `,
-	'src/starknet.tsx': `import type { ReactNode } from 'react';
-import { ControllerConnector } from '@cartridge/connector';
-import { mainnet, sepolia } from '@starknet-react/chains';
-import {
-	StarknetConfig,
-	cartridge,
-	cartridgeProvider,
-} from '@starknet-react/core';
-
-export const controllerConnector = new ControllerConnector({
-	lazyload: true,
-	signupOptions: ['webauthn'],
-});
-
-export function StarknetProvider({ children }: { children: ReactNode }) {
-	return (
-		<StarknetConfig
-			autoConnect
-			chains={[mainnet, sepolia]}
-			defaultChainId={sepolia.id}
-			provider={cartridgeProvider()}
-			connectors={[controllerConnector]}
-			explorer={cartridge}
-		>
-			{children}
-		</StarknetConfig>
-	);
-}
-`,
 	'src/lib/dojo.ts': `import { ControllerConnector } from '@cartridge/connector';
 import { DojoSdkProvider } from '@dojoengine/sdk/react';
 import { ToriiClient } from '@dojoengine/torii-client';
@@ -132,20 +103,6 @@ export default function App() {
 		</main>
 	);
 }
-`,
-	'src/main.tsx': `import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-import './index.css';
-import { StarknetProvider } from './starknet';
-
-createRoot(document.getElementById('root')!).render(
-	<StrictMode>
-		<StarknetProvider>
-			<App />
-		</StarknetProvider>
-	</StrictMode>,
-);
 `,
 };
 
