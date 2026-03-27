@@ -23,8 +23,8 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "dojo:check": "bash ./scripts/dojo-check.sh"
   },
   "dependencies": {
-    "@cartridge/connector": "0.11.3-alpha.1",
-    "@cartridge/controller": "0.11.3-alpha.1",
+    "@cartridge/connector": "0.13.10",
+    "@cartridge/controller": "0.13.10",
     "@dojoengine/core": "1.8.8",
     "@dojoengine/create-burner": "1.8.10",
     "@dojoengine/sdk": "1.9.0",
@@ -35,6 +35,7 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "@starknet-react/core": "5.0.3",
     "@tanstack/react-query": "^5.95.2",
     "clsx": "^2.1.1",
+    "framer-motion": "12.23.24",
     "lucide-react": "0.541.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -1398,8 +1399,8 @@ Use this as the default starting point for new app and game projects when no ric
         },
         language: 'typescript',
         deps: {
-            '@cartridge/connector': '0.11.3-alpha.1',
-            '@cartridge/controller': '0.11.3-alpha.1',
+            '@cartridge/connector': '0.13.10',
+            '@cartridge/controller': '0.13.10',
             '@dojoengine/core': '1.8.8',
             '@dojoengine/create-burner': '1.8.10',
             '@dojoengine/sdk': '1.9.0',
@@ -1410,6 +1411,7 @@ Use this as the default starting point for new app and game projects when no ric
             '@starknet-react/core': '5.0.3',
             '@tanstack/react-query': '^5.95.2',
             clsx: '^2.1.1',
+            'framer-motion': '12.23.24',
             'lucide-react': '0.541.0',
             react: '19.2.4',
             'react-dom': '19.2.4',

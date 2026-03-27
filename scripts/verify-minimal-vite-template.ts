@@ -24,6 +24,7 @@ function run(command: string, args: string[], cwd: string): void {
 function runLocally(tempDir: string): void {
 	console.log('Running minimal-vite template verification on the host.');
 	run('bun', ['install'], tempDir);
+	run('bun', ['run', 'typecheck'], tempDir);
 	run('bun', ['run', 'build'], tempDir);
 }
 
@@ -34,6 +35,24 @@ function runInSandbox(tempDir: string): void {
 	console.log(
 		`Running minimal-vite template Dojo verification inside sandbox image ${sandboxImage} (${sandboxPlatform}).`,
 	);
+
+	const sandboxCommand = `set -euo pipefail
+rm -rf node_modules bun.lock bun.lockb
+bun install
+bun run typecheck
+bun run dojo:build
+PORT=8001 bun run dev > /tmp/minimal-vite-dev.log 2>&1 &
+DEV_PID=$!
+for _ in $(seq 1 120); do
+  if curl -fsS http://127.0.0.1:8001 >/dev/null; then
+    break
+  fi
+  sleep 1
+done
+curl -fsS http://127.0.0.1:8001 >/dev/null
+kill $DEV_PID || true
+wait $DEV_PID || true
+bun run build`;
 
 	run(
 		'docker',
@@ -50,11 +69,12 @@ function runInSandbox(tempDir: string): void {
 			'/workspace/app',
 			sandboxImage,
 			'-lc',
-			'rm -rf node_modules bun.lock bun.lockb && bun install && bun run dojo:check && bun run build',
+			sandboxCommand,
 		],
 		process.cwd(),
 	);
 }
+
 
 function main(): void {
 	const template = createHelloWorldViteTemplateDetails();

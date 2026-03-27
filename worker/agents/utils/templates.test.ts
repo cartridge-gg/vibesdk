@@ -25,6 +25,9 @@ describe('templates', () => {
 			'"dojo:check": "bash ./scripts/dojo-check.sh"',
 		);
 		expect(template.allFiles['package.json']).toContain(
+			'"framer-motion": "12.23.24"',
+		);
+		expect(template.allFiles['package.json']).toContain(
 			'"lucide-react": "0.541.0"',
 		);
 		expect(template.allFiles['package.json']).toContain(
@@ -92,8 +95,8 @@ describe('templates', () => {
 		};
 
 		expect(packageJson.dependencies).toMatchObject({
-			'@cartridge/connector': '0.11.3-alpha.1',
-			'@cartridge/controller': '0.11.3-alpha.1',
+			'@cartridge/connector': '0.13.10',
+			'@cartridge/controller': '0.13.10',
 			'@dojoengine/core': '1.8.8',
 			'@dojoengine/create-burner': '1.8.10',
 			'@dojoengine/sdk': '1.9.0',
@@ -104,6 +107,7 @@ describe('templates', () => {
 			'@starknet-react/core': '5.0.3',
 			'@tanstack/react-query': '^5.95.2',
 			clsx: '^2.1.1',
+			'framer-motion': '12.23.24',
 			'lucide-react': '0.541.0',
 			react: '19.2.4',
 			'react-dom': '19.2.4',
