@@ -20,6 +20,23 @@ import { BaseProjectState } from '../../core/state';
 const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
+const SANDBOX_RECREATE_PATH_PATTERNS = [
+    /^Scarb\.toml$/,
+    /^Scarb\.lock$/,
+    /^dojo.*\.toml$/,
+    /^torii.*\.toml$/,
+    /^manifest.*\.json$/,
+    /^scripts\/dev\.sh$/,
+    /^scripts\/dojo-check\.sh$/,
+    /(?:^|\/)(src|contracts)\/.*\.cairo$/,
+];
+
+export function requiresSandboxRecreation(files: FileOutputType[]): boolean {
+    return files.some((file) =>
+        SANDBOX_RECREATE_PATH_PATTERNS.some((pattern) => pattern.test(file.filePath)),
+    );
+}
+
 
 /**
  * Manages deployment operations for sandbox instances
@@ -458,8 +475,15 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
 
         logger.info("Deploying code to sandbox service");
 
+        const shouldRecreateSandbox = redeploy || requiresSandboxRecreation(files);
+        if (shouldRecreateSandbox && !redeploy) {
+            logger.info('Forcing sandbox recreation because Dojo runtime files changed', {
+                files: files.map((file) => file.filePath),
+            });
+        }
+
         // Ensure instance exists and is healthy
-        const instanceResult = await this.ensureInstance(redeploy);
+        const instanceResult = await this.ensureInstance(shouldRecreateSandbox);
         const { sandboxInstanceId, previewURL, tunnelURL, redeployed } = instanceResult;
 
         // Determine which files to deploy
