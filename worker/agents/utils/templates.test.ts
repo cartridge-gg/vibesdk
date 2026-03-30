@@ -60,6 +60,13 @@ describe('templates', () => {
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'ControllerConnector',
 		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			"KATANA_RPC_URL = 'http://127.0.0.1:5050'",
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			"chains: [{ rpcUrl: KATANA_RPC_URL }]",
+		);
+		expect(template.allFiles['src/starknet.tsx']).not.toContain('sepolia');
 		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
 			'DojoSdkProvider',
 		);
@@ -79,8 +86,14 @@ describe('templates', () => {
 		expect(template.allFiles['src/systems/actions.cairo']).toContain(
 			'fn buy_upgrade',
 		);
-		expect(template.allFiles['scripts/dev.sh']).toContain('sozo migrate');
+		expect(template.allFiles['package.json']).toContain(
+			'"dojo:migrate": "sozo build && sozo migrate apply"',
+		);
+		expect(template.allFiles['scripts/dev.sh']).toContain('sozo migrate apply');
 		expect(template.allFiles['scripts/dev.sh']).toContain('torii --world');
+		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
+			'sozo migrate apply',
+		);
 		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
 			'wait_for_http "http://127.0.0.1:8080"',
 		);

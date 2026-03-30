@@ -18,7 +18,7 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "cf-typegen": "wrangler types",
     "dojo:devnet": "katana --dev --http.api dev,starknet --dev.no-fee --http.cors_origins '*'",
     "dojo:build": "sozo build",
-    "dojo:migrate": "sozo build && sozo migrate",
+    "dojo:migrate": "sozo build && sozo migrate apply",
     "dojo:indexer": "bash ./scripts/torii.sh",
     "dojo:check": "bash ./scripts/dojo-check.sh"
   },
@@ -226,27 +226,60 @@ createRoot(document.getElementById('root')!).render(
 
 const HELLO_WORLD_VITE_STARKNET = `import type { ReactNode } from 'react';
 import { ControllerConnector } from '@cartridge/connector';
-import { mainnet, sepolia } from '@starknet-react/chains';
+import type { Chain } from '@starknet-react/chains';
 import {
   StarknetConfig,
-  cartridge,
   cartridgeProvider,
 } from '@starknet-react/core';
+
+const KATANA_RPC_URL = 'http://127.0.0.1:5050';
+const KATANA_DEV_CHAIN_ID = '0x534e5f5345504f4c4941';
+
+const katana = {
+  id: BigInt(KATANA_DEV_CHAIN_ID),
+  network: 'katana',
+  name: 'Katana',
+  nativeCurrency: {
+    address:
+      '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  testnet: true,
+  rpcUrls: {
+    default: {
+      http: [],
+    },
+    public: {
+      http: [KATANA_RPC_URL],
+    },
+    cartridge: {
+      http: [KATANA_RPC_URL],
+    },
+  },
+  paymasterRpcUrls: {
+    avnu: {
+      http: [KATANA_RPC_URL],
+    },
+  },
+} as const satisfies Chain;
 
 export const controllerConnector = new ControllerConnector({
   lazyload: true,
   signupOptions: ['webauthn'],
+  chains: [{ rpcUrl: KATANA_RPC_URL }],
+  defaultChainId: KATANA_DEV_CHAIN_ID,
 });
 
 export function StarknetProvider({ children }: { children: ReactNode }) {
   return (
     <StarknetConfig
       autoConnect
-      chains={[mainnet, sepolia]}
-      defaultChainId={sepolia.id}
+      chains={[katana]}
+      defaultChainId={katana.id}
       provider={cartridgeProvider()}
       connectors={[controllerConnector]}
-      explorer={cartridge}
     >
       {children}
     </StarknetConfig>
@@ -974,7 +1007,7 @@ KATANA_PID=$!
 
 wait_for_rpc
 sozo build
-sozo migrate
+sozo migrate apply
 
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
@@ -1055,7 +1088,7 @@ KATANA_PID=$!
 
 wait_for_rpc
 sozo build
-sozo migrate
+sozo migrate apply
 
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
