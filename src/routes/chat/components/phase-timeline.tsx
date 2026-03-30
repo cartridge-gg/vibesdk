@@ -195,6 +195,7 @@ interface PhaseTimelineProps {
 	// Activity state
 	isGenerating?: boolean;
 	isThinking?: boolean;
+	isGenerationComplete?: boolean;
 }
 
 // Helper function to truncate long file paths
@@ -282,7 +283,8 @@ export function PhaseTimeline({
 	staticIssueCount = 0,
 	isDebugging = false,
 	isGenerating = false,
-	isThinking = false
+	isThinking = false,
+	isGenerationComplete = false,
 }: PhaseTimelineProps) {
 	const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 	const [showCollapsedBar, setShowCollapsedBar] = useState(false);
@@ -988,7 +990,7 @@ export function PhaseTimeline({
 					{(() => {
 						const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
 						const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
-						const showDone = allStagesCompleted && !isAnythingHappening;
+						const showDone = isGenerationComplete && allStagesCompleted && !isAnythingHappening;
 						
 						if (showDone) {
 							return (

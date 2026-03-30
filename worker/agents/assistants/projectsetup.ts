@@ -60,6 +60,8 @@ Output:
 - Include common companion packages when needed
 - Focus on blueprint requirements only
 - cloudflare:workers is not needed, it's already installed
+- Never suggest nonexistent packages. For Dojo, \`@dojoengine/torii-client\` is valid, \`@dojoengine/torii\` is not.
+- Never reinstall starter dependencies that are already present, including \`lucide-react\`, Cartridge packages, and the Dojo web packages.
 - Do NOT add ESLint, Prettier, Husky, lint-staged, commit tooling, testing libraries, or other custom tooling unless explicitly requested by the user
 
 **Do not recommend installing \`cloudflare:workers\` or \`cloudflare:durable-objects\` as dependencies, these are already installed in the project always.**

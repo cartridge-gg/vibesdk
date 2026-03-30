@@ -131,6 +131,7 @@ export default function Chat() {
 		isRedeployReady,
 		isGenerationPaused,
 		isGenerating,
+		isGenerationComplete,
 		handleStopGeneration,
 		handleResumeGeneration,
 		handleDeployToCloudflare,
@@ -763,6 +764,7 @@ export default function Chat() {
 									isDebugging={isDebugging}
 									isGenerating={isGenerating}
 									isThinking={isThinking}
+									isGenerationComplete={isGenerationComplete}
 								/>
 							)}
 
@@ -776,7 +778,7 @@ export default function Chat() {
 									className="px-4 mb-6"
 								>
 									<DeploymentControls
-										isPhase1Complete={isPhase1Complete}
+										isGenerationComplete={isGenerationComplete}
 										isDeploying={isDeploying}
 										deploymentUrl={cloudflareDeploymentUrl}
 										instanceId={chatId || ''}

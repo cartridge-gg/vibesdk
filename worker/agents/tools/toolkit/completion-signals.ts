@@ -67,3 +67,39 @@ Once you call this tool, make NO further tool calls. The system will stop immedi
 		},
 	});
 }
+
+export function createMarkDojoIntegrationCompleteTool(
+	logger: StructuredLogger
+): ToolDefinition<
+	{ summary: string; filesTouched: number },
+	CompletionResult
+> {
+	return tool({
+		name: 'mark_dojo_integration_complete',
+		description: `Signal that the Dojo integration task is complete. Use this only when the Dojo backend/client wiring is in place and any required verification has already been performed.`,
+		args: {
+			summary: t
+				.string()
+				.describe(
+					'Brief summary of what Dojo integration work was completed (2-3 sentences max).',
+				),
+			filesTouched: t
+				.number()
+				.describe(
+					'Count of files created or modified during the Dojo integration task.',
+				),
+		},
+		run: async ({ summary, filesTouched }) => {
+			logger.info('Dojo integration marked complete', {
+				summary,
+				filesTouched,
+				timestamp: new Date().toISOString(),
+			});
+
+			return {
+				acknowledged: true as const,
+				message: `Dojo integration completion acknowledged. Updated ${filesTouched} file(s). ${summary}`,
+			};
+		},
+	});
+}

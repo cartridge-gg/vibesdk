@@ -326,10 +326,11 @@ useEffect(() => { init(config); }, [config]); // stable reference
     **TOP 6 MISSION-CRITICAL RULES (FAILURE WILL CRASH THE APP):**
     1. **DEPENDENCY VALIDATION:** BEFORE writing any import statement, verify it exists in <DEPENDENCIES>. Common failures: @xyflow/react uses { ReactFlow } not default import, @/lib/utils for cn function. If unsure, check the dependency list first.
     2. **IMPORT & EXPORT INTEGRITY:** Ensure every component, function, or variable is correctly defined and imported properly (and exported properly). Mismatched default/named imports will cause crashes. NEVER write \`import React, 'react';\` - always use \`import React from 'react';\`
-    3. **NO RUNTIME ERRORS:** Write robust, fault-tolerant code. Handle all edge cases gracefully with fallbacks. Never throw uncaught errors that can crash the application.
-    4. **NO UNDEFINED VALUES/PROPERTIES/FUNCTIONS/COMPONENTS etc:** Ensure all variables, functions, and components are defined before use. Never use undefined values. If you use something that isn't already defined, you need to define it.
-    5. **STATE UPDATE INTEGRITY:** Never call state setters directly during the render phase; all state updates must originate from event handlers or useEffect hooks to prevent infinite loops.
-    6. **🔥 ZUSTAND ZERO-TOLERANCE RULE 🔥:** ABSOLUTE LAW: useStore(s => s.primitive) ONLY. No object selectors. No exceptions. Any useStore(s => ({...})), useStore(), or useStore(s => s.getXxx()) = INSTANT CRASH. Multiple values? Call useStore multiple times - this is the ONLY correct pattern. See REACT INFINITE LOOP PREVENTION section for complete patterns.
+    3. **PUBLIC PACKAGE ENTRYPOINTS ONLY:** Never deep-import third-party internals such as \`/dist/*\`, \`/src/*\`, or \`/lib/*\`. Use documented package exports only. Examples: \`@cartridge/connector\` or \`@cartridge/connector/controller\` are valid, \`@cartridge/connector/dist/controller\` is invalid. \`@dojoengine/torii-client\` and \`@dojoengine/sdk/react\` are valid, \`@dojoengine/torii-client/dist/client\` is invalid.
+    4. **NO RUNTIME ERRORS:** Write robust, fault-tolerant code. Handle all edge cases gracefully with fallbacks. Never throw uncaught errors that can crash the application.
+    5. **NO UNDEFINED VALUES/PROPERTIES/FUNCTIONS/COMPONENTS etc:** Ensure all variables, functions, and components are defined before use. Never use undefined values. If you use something that isn't already defined, you need to define it.
+    6. **STATE UPDATE INTEGRITY:** Never call state setters directly during the render phase; all state updates must originate from event handlers or useEffect hooks to prevent infinite loops.
+    7. **🔥 ZUSTAND ZERO-TOLERANCE RULE 🔥:** ABSOLUTE LAW: useStore(s => s.primitive) ONLY. No object selectors. No exceptions. Any useStore(s => ({...})), useStore(), or useStore(s => s.getXxx()) = INSTANT CRASH. Multiple values? Call useStore multiple times - this is the ONLY correct pattern. See REACT INFINITE LOOP PREVENTION section for complete patterns.
     
     **UI/UX EXCELLENCE CRITICAL RULES:**
     7. **VISUAL HIERARCHY CLARITY:** Every interface must have clear visual hierarchy - never create pages with uniform text sizes or equal visual weight for all elements
@@ -460,6 +461,8 @@ useEffect(() => { init(config); }, [config]); // stable reference
     import { Button } from 'shadcn/ui';         // WRONG: should be @/components/ui
     import { useState } from 'react';           // MISSING: React itself
     import { useRouter } from 'next/navigation'; // WRONG: use 'react-router-dom'
+    import ControllerConnector from '@cartridge/connector/dist/controller'; // WRONG: package internal path
+    import { createClient } from '@dojoengine/torii-client/dist/client'; // WRONG: package internal path
     \`\`\`
 
     **GOOD IMPORTS** (correct syntax):
@@ -469,6 +472,9 @@ useEffect(() => { init(config); }, [config]); // stable reference
     import { cn } from '@/lib/utils';                    // CORRECT: named export
     import { Button } from '@/components/ui/button';     // CORRECT: full path
     import { useNavigate } from 'react-router-dom';      // CORRECT for routing
+    import { ControllerConnector } from '@cartridge/connector'; // CORRECT: public export
+    import { DojoSdkProvider } from '@dojoengine/sdk/react'; // CORRECT: public export
+    import { ToriiClient } from '@dojoengine/torii-client'; // CORRECT: package root export
     \`\`\`
 
     **Import Checklist**:
@@ -1208,8 +1214,8 @@ const GAME_INSTRUCTIONS = (
 ** Do not use Phaser, PixiJS, Excalibur.js, Kaboom, Godot, canvas engines, or any other game engine unless the user explicitly asks for one
 ** Keep the architecture simple and inspectable: separate game state, input handling, timing/loop helpers, and presentation components into clear boundaries
 ** Include Cartridge Controller sign-in by default using the existing platform integration pattern
-** Do not add actual Dojo contracts, Torii, Katana, persistence, or other backend systems unless the user explicitly asks for them
-** Still make the design Dojo-compatible: use stable entity IDs, small serializable state records, explicit commands, deterministic authoritative updates, and meaningful events
+** Always generate actual Cairo Dojo contracts plus the required Sozo/Katana/Torii and client wiring for authoritative gameplay behavior
+** Use stable entity IDs, small serializable state records, explicit commands, deterministic authoritative updates, and meaningful events across the Dojo-backed architecture
 ** Specify controls, game loop, scoring, progression, failure states, and restart conditions explicitly
 
 Use the following artistic style:

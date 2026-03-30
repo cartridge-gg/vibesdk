@@ -321,10 +321,13 @@ export class CodingAgentController extends BaseController {
 
                 // Construct WebSocket URL
                 const websocketUrl = buildAgentWebSocketUrl(request, agentId);
+                const appService = new AppService(env);
+                const appStatus = (await appService.getAppStatus(agentId)) ?? 'generating';
 
                 const responseData: AgentConnectionData = {
                     websocketUrl,
                     agentId,
+                    appStatus,
                 };
 
                 return CodingAgentController.createSuccessResponse(responseData);

@@ -99,6 +99,18 @@ export class AppService extends BaseService {
             .returning();
         return app;
     }
+
+    async getAppStatus(appId: string): Promise<'generating' | 'completed' | null> {
+        const readDb = this.getReadDb('fresh');
+        const app = await readDb
+            .select({ status: schema.apps.status })
+            .from(schema.apps)
+            .where(eq(schema.apps.id, appId))
+            .get();
+
+        return app?.status ?? null;
+    }
+
     /**
      * Get public apps with pagination and sorting
      */

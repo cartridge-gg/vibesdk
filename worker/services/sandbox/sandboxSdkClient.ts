@@ -82,6 +82,9 @@ export enum AllocationStrategy {
     MANY_TO_ONE = 'many_to_one',
     ONE_TO_ONE = 'one_to_one',
 }
+
+const DEFAULT_PREVIEW_PORT = 8001;
+const SHARED_SANDBOX_PREVIEW_PORTS = Array.from({ length: 10 }, (_, index) => DEFAULT_PREVIEW_PORT + index);
   
 function getAutoAllocatedSandbox(sessionId: string): string {
     // Distribute sessions across available containers using consistent hashing
@@ -441,34 +444,46 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     private async allocateAvailablePort(excludedPorts: number[] = [3000]): Promise<number> {
+        const portCandidates = env.ALLOCATION_STRATEGY === AllocationStrategy.MANY_TO_ONE
+            ? SHARED_SANDBOX_PREVIEW_PORTS
+            : [DEFAULT_PREVIEW_PORT];
+        const availableCandidates = portCandidates.filter((port) => !excludedPorts.includes(port));
+
+        if (availableCandidates.length === 0) {
+            throw new Error(`No preview ports available from configured candidates: ${portCandidates.join(', ')}`);
+        }
+
+        if (availableCandidates.length === 1) {
+            const allocatedPort = availableCandidates[0];
+            this.logger.info(`Allocated dedicated preview port: ${allocatedPort}`);
+            return allocatedPort;
+        }
+
         const startTime = Date.now();
-        const excludeList = excludedPorts.join(' ');
-        
-        // Single command to find first available port in dev range (8001-8999)
+        const candidateList = availableCandidates.join(' ');
         const findPortCmd = `
-            for port in $(seq 8001 8999); do
-                if ! echo "${excludeList}" | grep -q "\\\\b$port\\\\b" && 
-                   ! netstat -tuln 2>/dev/null | grep -q ":$port " && 
+            for port in ${candidateList}; do
+                if ! netstat -tuln 2>/dev/null | grep -q ":$port " &&
                    ! ss -tuln 2>/dev/null | grep -q ":$port "; then
                     echo $port
                     break
                 fi
             done
         `;
-        
+
         const result = await this.safeSandboxExec(findPortCmd.trim());
         const endTime = Date.now();
         const duration = (endTime - startTime) / 1000;
-        this.logger.info(`Port allocation took ${duration} seconds`);
-        
+        this.logger.info(`Port allocation took ${duration} seconds`, { candidates: availableCandidates });
+
         const portStr = result.stdout.trim();
         if (portStr) {
             const port = parseInt(portStr);
             this.logger.info(`Allocated available port: ${port}`);
             return port;
         }
-        
-        throw new Error('No available ports found in range 8001-8999');
+
+        throw new Error(`No available ports found in configured range: ${availableCandidates.join(', ')}`);
     }
     
     private async buildFileTree(instanceId: string): Promise<FileTreeNode | undefined> {
@@ -573,14 +588,19 @@ export class SandboxSdkClient extends BaseSandboxService {
     /**
      * Waits for the development server to be ready by monitoring logs for readiness indicators
      */
-    private async waitForServerReady(instanceId: string, processId: string, maxWaitTimeMs: number = 10000): Promise<boolean> {
+    private async waitForServerReady(
+        instanceId: string,
+        processId: string,
+        port: number,
+        maxWaitTimeMs: number = 120000,
+    ): Promise<boolean> {
         const startTime = Date.now();
-        const pollIntervalMs = 500;
+        const pollIntervalMs = 2000;
         const maxAttempts = Math.ceil(maxWaitTimeMs / pollIntervalMs);
         
-        // Patterns that indicate the server is ready
+        // Patterns that indicate Vite specifically is ready. Avoid generic HTTP URLs because
+        // the Dojo bootstrap prints Katana/Torii endpoints long before the app port is live.
         const readinessPatterns = [
-            /http:\/\/[^\s]+/,           // Any HTTP URL (most reliable)
             /ready in \d+/i,             // Vite "ready in X ms"
             /Local:\s+http/i,            // Vite local server line
             /Network:\s+http/i,          // Vite network server line
@@ -588,22 +608,52 @@ export class SandboxSdkClient extends BaseSandboxService {
             /listening on/i              // Generic listening message
         ];
 
-        this.logger.info('Waiting for development server', { instanceId, processId, timeoutMs: maxWaitTimeMs });
+        this.logger.info('Waiting for development server', {
+            instanceId,
+            processId,
+            port,
+            timeoutMs: maxWaitTimeMs,
+        });
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Get recent logs only to avoid processing old content
-                const logsResult = await this.getLogs(instanceId, true);
-                
-                if (logsResult.success && logsResult.logs.stdout) {
-                    const logs = logsResult.logs.stdout;
+                const probeResult = await this.executeCommand(
+                    instanceId,
+                    `timeout 2s curl -I -sS http://127.0.0.1:${port}/ >/dev/null`,
+                    { timeout: 5000 },
+                );
+
+                if (probeResult.exitCode === 0) {
+                    const elapsedTime = Date.now() - startTime;
+                    this.logger.info('Development server ready via HTTP probe', {
+                        instanceId,
+                        port,
+                        elapsedTimeMs: elapsedTime,
+                        attempts: `${attempt}/${maxAttempts}`,
+                    });
+                    return true;
+                }
+
+                // Pull logs periodically for signal, but avoid doing it on every failed probe
+                // because each CLI call is also logged by the sandbox runtime.
+                if (attempt === 1 || attempt % 5 === 0) {
+                    const logsResult = await this.getLogs(instanceId, true);
                     
-                    // Check for any readiness pattern
-                    for (const pattern of readinessPatterns) {
-                        if (pattern.test(logs)) {
-                            const elapsedTime = Date.now() - startTime;
-                            this.logger.info('Development server ready', { instanceId, elapsedTimeMs: elapsedTime, attempts: `${attempt}/${maxAttempts}` });
-                            return true;
+                    if (logsResult.success && logsResult.logs.stdout) {
+                        const logs = logsResult.logs.stdout;
+                        
+                        // Check for any readiness pattern
+                        for (const pattern of readinessPatterns) {
+                            if (pattern.test(logs)) {
+                                const elapsedTime = Date.now() - startTime;
+                                this.logger.info('Development server ready via logs', {
+                                    instanceId,
+                                    port,
+                                    elapsedTimeMs: elapsedTime,
+                                    attempts: `${attempt}/${maxAttempts}`,
+                                });
+                                return true;
+                            }
                         }
                     }
                 }
@@ -641,15 +691,17 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             // Wait for the server to be ready (non-blocking - always returns the process ID)
             try {
-                const isReady = await this.waitForServerReady(instanceId, process.id, 10000);
+                const isReady = await this.waitForServerReady(instanceId, process.id, port);
                 if (isReady) {
                     this.logger.info('Development server is ready', { instanceId });
                 } else {
-                    this.logger.warn('Development server may not be fully ready', { instanceId });
+                    throw new Error(
+                        `Development server did not start listening on port ${port} within the readiness window`,
+                    );
                 }
             } catch (readinessError) {
                 this.logger.warn(`Error during readiness check for ${instanceId}:`, readinessError);
-                this.logger.info('Continuing with server startup despite readiness check error', { instanceId });
+                throw readinessError;
             }
             
             return process.id;
@@ -935,9 +987,10 @@ export class SandboxSdkClient extends BaseSandboxService {
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
             }
 
-            this.logger.info('Installing dependencies', { instanceId });
+            const dependencyInstallTimeoutMs = 180000;
+            this.logger.info('Installing dependencies', { instanceId, dependencyInstallTimeoutMs });
             const [installResult, tunnelURL] = await Promise.all([
-                this.executeCommand(instanceId, `bun install`, { timeout: 40000 }),
+                this.executeCommand(instanceId, `bun install`, { timeout: dependencyInstallTimeoutMs }),
                 tunnelUrlPromise
             ]);
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
@@ -1076,7 +1129,13 @@ export class SandboxSdkClient extends BaseSandboxService {
                 processId: results.processId,
             };
         } catch (error) {
-            this.logger.error(`Failed to create instance for project ${projectName}`, error);
+            this.logger.error(`Failed to create instance for project ${projectName}`, {
+                error,
+                projectName,
+                filesCount: files.length,
+                initCommand,
+                envVarKeys: Object.keys(envVars || {}),
+            });
             return {
                 success: false,
                 error: `Failed to create instance: ${error instanceof Error ? error.message : 'Unknown error'}`

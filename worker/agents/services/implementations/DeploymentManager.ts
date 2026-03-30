@@ -1,6 +1,6 @@
-import { 
-    IDeploymentManager, 
-    DeploymentParams, 
+import {
+    IDeploymentManager,
+    DeploymentParams,
     DeploymentResult,
     SandboxDeploymentCallbacks,
     CloudflareDeploymentCallbacks
@@ -20,6 +20,23 @@ import { BaseProjectState } from '../../core/state';
 const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
+const SANDBOX_RECREATE_PATH_PATTERNS = [
+    /^Scarb\.toml$/,
+    /^Scarb\.lock$/,
+    /^dojo.*\.toml$/,
+    /^torii.*\.toml$/,
+    /^manifest.*\.json$/,
+    /^scripts\/dev\.sh$/,
+    /^scripts\/dojo-check\.sh$/,
+    /(?:^|\/)(src|contracts)\/.*\.cairo$/,
+];
+
+export function requiresSandboxRecreation(files: FileOutputType[]): boolean {
+    return files.some((file) =>
+        SANDBOX_RECREATE_PATH_PATTERNS.some((pattern) => pattern.test(file.filePath)),
+    );
+}
+
 
 /**
  * Manages deployment operations for sandbox instances
@@ -36,7 +53,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         private maxCommandsHistory: number,
     ) {
         super(options);
-        
+
         // Ensure state has sessionId
         const state = this.getState();
         if (!state.sessionId) {
@@ -60,12 +77,12 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
     public getClient(): BaseSandboxService {
         if (!this.cachedSandboxClient) {
             const logger = this.getLog();
-            logger.info('Creating sandbox service client', { 
-                sessionId: this.getSessionId(), 
-                agentId: this.getAgentId() 
+            logger.info('Creating sandbox service client', {
+                sessionId: this.getSessionId(),
+                agentId: this.getAgentId()
             });
             this.cachedSandboxClient = getSandboxService(
-                this.getSessionId(), 
+                this.getSessionId(),
                 this.getAgentId()
             );
         }
@@ -80,16 +97,16 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         const state = this.getState();
         const oldSessionId = state.sessionId;
         const newSessionId = DeploymentManager.generateNewSessionId();
-        
+
         logger.info(`SessionId reset: ${oldSessionId} → ${newSessionId}`);
-        
+
         // Reset session ID in logger
         logger.setFields({
             sessionId: newSessionId,
         });
         // Invalidate cached sandbox client (tied to old sessionId)
         this.cachedSandboxClient = null;
-        
+
         // Update state
         this.setState({
             ...state,
@@ -108,13 +125,13 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
     async waitForPreview(): Promise<void> {
         const state = this.getState();
         const logger = this.getLog();
-        
+
         logger.info("Waiting for preview");
-        
+
         if (!state.sandboxInstanceId) {
             logger.info("No sandbox instance, will create during next deploy");
         }
-        
+
         logger.info("Waiting for preview completed");
     }
 
@@ -123,24 +140,24 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
      * @param onAfterCommands Optional callback invoked after commands complete (e.g., for syncing package.json)
      */
     async executeSetupCommands(
-        sandboxInstanceId: string, 
+        sandboxInstanceId: string,
         timeoutMs: number = 60000,
         onAfterCommands?: () => Promise<void>
     ): Promise<void> {
         const { commandsHistory } = this.getState();
         const logger = this.getLog();
         const client = this.getClient();
-        
+
         if (!commandsHistory || commandsHistory.length === 0) {
             return;
         }
 
         // CRITICAL: Audit bootstrap commands before execution (safety net)
         const { validCommands, invalidCommands } = validateAndCleanBootstrapCommands(
-            commandsHistory, 
+            commandsHistory,
             this.maxCommandsHistory
         );
-        
+
         if (invalidCommands.length > 0) {
             logger.warn('[commands] DANGEROUS COMMANDS DETECTED IN BOOTSTRAP - FILTERED OUT', {
                 dangerous: invalidCommands,
@@ -148,7 +165,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 validCount: validCommands.length
             });
         }
-        
+
         if (validCommands.length === 0) {
             logger.warn('[commands] No valid commands to execute after filtering');
             return;
@@ -161,9 +178,9 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             timeoutMs,
             'Command execution timed out'
         );
-        
+
         logger.info('Setup commands executed successfully');
-        
+
         // Invoke callback if provided (e.g., for package.json sync)
         if (onAfterCommands) {
             logger.info('Invoking post-command callback');
@@ -176,21 +193,21 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
      */
     private startHealthCheckInterval(instanceId: string): void {
         const logger = this.getLog();
-        
+
         // Clear any existing interval
         this.clearHealthCheckInterval();
-        
+
         logger.info(`Starting health check interval for instance ${instanceId}`);
-        
+
         this.healthCheckInterval = setInterval(async () => {
             try {
                 const client = this.getClient();
                 const status = await client.getInstanceStatus(instanceId);
-                
+
                 if (!status.success || !status.isHealthy) {
                     logger.warn(`Instance ${instanceId} unhealthy, triggering redeploy`);
                     this.clearHealthCheckInterval();
-                    
+
                     // Trigger redeploy to recover from unhealthy state
                     try {
                         await this.deployToSandbox();
@@ -271,13 +288,13 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         const client = this.getClient();
 
         const resp = await client.getInstanceErrors(sandboxInstanceId, clear);
-            
+
         if (!resp || !resp.success) {
             throw new Error(`Failed to fetch runtime errors: ${resp?.error || 'Unknown error'}`);
         }
 
         const errors = resp.errors || [];
-            
+
         if (errors.length > 0) {
             logger.info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);
         }
@@ -299,7 +316,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         callbacks?: SandboxDeploymentCallbacks
     ): Promise<PreviewType | null> {
         const logger = this.getLog();
-        
+
         // All concurrent callers wait on the same promise
         if (this.currentDeploymentPromise) {
             logger.info('Deployment already in progress, waiting for completion');
@@ -355,11 +372,11 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         const logger = this.getLog();
         let attempt = 0;
         const maxAttemptsBeforeSessionReset = 3;
-        
+
         while (true) {
             attempt++;
             logger.info(`Deployment attempt ${attempt}`, { sessionId: this.getSessionId() });
-            
+
             try {
                 // Callback: deployment starting (only on first attempt)
                 callbacks?.onStarted?.({
@@ -374,7 +391,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                     commitMessage,
                     clearLogs
                 });
-                
+
                 const result = await this.withTimeout(
                     deployPromise,
                     PER_ATTEMPT_TIMEOUT_MS,
@@ -408,26 +425,26 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
 
                 logger.info('Deployment succeeded', { attempt, sessionId: this.getSessionId() });
                 return preview;
-                
+
             } catch (error) {
                 logger.warn(`Deployment attempt ${attempt} failed:`, error);
-                
+
                 const errorMsg = error instanceof Error ? error.message : String(error);
 
                 // Handle specific errors that require session reset
-                if (errorMsg.includes('Network connection lost') || 
-                    errorMsg.includes('Container service disconnected') || 
+                if (errorMsg.includes('Network connection lost') ||
+                    errorMsg.includes('Container service disconnected') ||
                     errorMsg.includes('Internal error in Durable Object storage')) {
                     logger.warn('Session-level error detected, resetting sessionId');
                     this.resetSessionId();
                 }
-                
+
                 // After consecutive failures, reset session to get fresh sandbox
                 if (attempt % maxAttemptsBeforeSessionReset === 0) {
                     logger.warn(`${attempt} consecutive failures, resetting sessionId for fresh sandbox`);
                     this.resetSessionId();
                 }
-                
+
                 // Clear instance ID from state
                 this.setState({
                     ...this.getState(),
@@ -437,12 +454,12 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 callbacks?.onError?.({
                     error: `Deployment attempt ${attempt} failed: ${errorMsg}`
                 });
-                
+
                 // Exponential backoff before retry (capped at 30 seconds)
                 const backoffMs = Math.min(1000 * Math.pow(2, Math.min(attempt - 1, 5)), 30000);
                 logger.info(`Retrying deployment in ${backoffMs}ms...`);
                 await new Promise(resolve => setTimeout(resolve, backoffMs));
-                
+
                 // Loop continues - retry indefinitely until master timeout
             }
         }
@@ -455,11 +472,18 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
     private async deploy(params: DeploymentParams): Promise<DeploymentResult> {
         const { files, redeploy, commitMessage, clearLogs } = params;
         const logger = this.getLog();
-        
+
         logger.info("Deploying code to sandbox service");
 
+        const shouldRecreateSandbox = redeploy || requiresSandboxRecreation(files);
+        if (shouldRecreateSandbox && !redeploy) {
+            logger.info('Forcing sandbox recreation because Dojo runtime files changed', {
+                files: files.map((file) => file.filePath),
+            });
+        }
+
         // Ensure instance exists and is healthy
-        const instanceResult = await this.ensureInstance(redeploy);
+        const instanceResult = await this.ensureInstance(shouldRecreateSandbox);
         const { sandboxInstanceId, previewURL, tunnelURL, redeployed } = instanceResult;
 
         // Determine which files to deploy
@@ -472,7 +496,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 filesToWrite,
                 commitMessage
             );
-            
+
             if (!writeResponse || !writeResponse.success) {
                 logger.error(`File writing failed. Error: ${writeResponse?.error}`);
                 throw new Error(`File writing failed. Error: ${writeResponse?.error}`);
@@ -591,7 +615,17 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         });
 
         if (!createResponse || !createResponse.success || !createResponse.runId) {
-            throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
+            logger.error('Sandbox instance creation failed', {
+                projectName,
+                filesCount: files.length,
+                envVarKeys: Object.keys(localEnvVars),
+                initCommand: 'bun run dev',
+                createResponse,
+            });
+
+            throw new Error(
+                `Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}; response=${JSON.stringify(createResponse)}`,
+            );
         }
 
         logger.info(`Created sandbox instance`, {
@@ -603,7 +637,17 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             return createResponse;
         }
 
-        throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
+        logger.error('Sandbox instance creation returned incomplete response', {
+            projectName,
+            filesCount: files.length,
+            envVarKeys: Object.keys(localEnvVars),
+            initCommand: 'bun run dev',
+            createResponse,
+        });
+
+        throw new Error(
+            `Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}; response=${JSON.stringify(createResponse)}`,
+        );
     }
 
     /**
@@ -614,7 +658,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         redeployed: boolean
     ): Array<{ filePath: string; fileContents: string }> {
         const state = this.getState();
-        
+
         // If no files requested or redeploying, use all generated files from state
         if (!requestedFiles || requestedFiles.length === 0 || redeployed) {
             requestedFiles = Object.values(state.generatedFilesMap);
@@ -625,7 +669,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             fileContents: file.fileContents
         }));
     }
-    
+
     /**
      * Deploy to Cloudflare Workers
      * Returns deployment URL and deployment ID for database updates
@@ -639,14 +683,14 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         const client = this.getClient();
         const target = request?.target ?? 'platform';
         const callbacks = request?.callbacks;
-        
+
         await this.waitForPreview();
-        
+
         callbacks?.onStarted?.({
             message: 'Starting deployment to Cloudflare Workers...',
             instanceId: state.sandboxInstanceId ?? ''
         });
-        
+
         logger.info('Starting Cloudflare deployment', { target });
 
         // Check if we have generated files
@@ -686,7 +730,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             });
 
             // Check for preview expired error
-            if (deploymentResult?.error?.includes('Failed to read instance metadata') || 
+            if (deploymentResult?.error?.includes('Failed to read instance metadata') ||
                 deploymentResult?.error?.includes(`/bin/sh: 1: cd: can't cd to i-`)) {
                 logger.error('Deployment sandbox died - preview expired');
                 this.deployToSandbox();
@@ -697,7 +741,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                     error: deploymentResult?.error || 'Unknown deployment error'
                 });
             }
-            
+
             return { deploymentUrl: null };
         }
 
@@ -716,7 +760,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             deploymentUrl: deploymentUrl || ''
         });
 
-        return { 
+        return {
             deploymentUrl: deploymentUrl || null,
             deploymentId: deploymentId
         };

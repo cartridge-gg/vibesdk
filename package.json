@@ -12,6 +12,8 @@
 		"typecheck": "tsc -b --incremental --noEmit",
 		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
+		"verify:template:minimal-vite": "tsx scripts/verify-minimal-vite-template.ts",
+		"verify:template:minimal-vite:sandbox": "VERIFY_IN_SANDBOX=1 tsx scripts/verify-minimal-vite-template.ts",
 		"deploy": "bun --env-file .prod.vars scripts/deploy.ts",
 		"cli": "tsx --tsconfig tsconfig.app.json cli/index.ts",
 		"tui": "tsx --tsconfig tsconfig.app.json cli/tui.tsx",
