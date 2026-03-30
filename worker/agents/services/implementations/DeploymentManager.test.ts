@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { requiresSandboxRecreation } from './DeploymentManager';
+import {
+	MASTER_DEPLOYMENT_TIMEOUT_MS,
+	MIN_SANDBOX_SETUP_TIMEOUT_MS,
+	PER_ATTEMPT_TIMEOUT_MS,
+	requiresSandboxRecreation,
+} from './DeploymentManager';
 
 describe('requiresSandboxRecreation', () => {
 	it('forces sandbox recreation for cairo and dojo runtime files', () => {
@@ -31,5 +36,14 @@ describe('requiresSandboxRecreation', () => {
 				{ filePath: 'src/index.css', fileContents: '' },
 			]),
 		).toBe(false);
+	});
+
+	it('allows one full sandbox setup attempt before deployment retries', () => {
+		expect(PER_ATTEMPT_TIMEOUT_MS).toBeGreaterThan(
+			MIN_SANDBOX_SETUP_TIMEOUT_MS,
+		);
+		expect(MASTER_DEPLOYMENT_TIMEOUT_MS).toBeGreaterThan(
+			PER_ATTEMPT_TIMEOUT_MS,
+		);
 	});
 });

@@ -85,6 +85,8 @@ export enum AllocationStrategy {
 
 const DEFAULT_PREVIEW_PORT = 8001;
 const SHARED_SANDBOX_PREVIEW_PORTS = Array.from({ length: 10 }, (_, index) => DEFAULT_PREVIEW_PORT + index);
+export const DEV_SERVER_READINESS_TIMEOUT_MS = 120000;
+export const SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS = 180000;
   
 function getAutoAllocatedSandbox(sessionId: string): string {
     // Distribute sessions across available containers using consistent hashing
@@ -592,7 +594,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         instanceId: string,
         processId: string,
         port: number,
-        maxWaitTimeMs: number = 120000,
+        maxWaitTimeMs: number = DEV_SERVER_READINESS_TIMEOUT_MS,
     ): Promise<boolean> {
         const startTime = Date.now();
         const pollIntervalMs = 2000;
@@ -987,7 +989,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
             }
 
-            const dependencyInstallTimeoutMs = 180000;
+            const dependencyInstallTimeoutMs = SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS;
             this.logger.info('Installing dependencies', { instanceId, dependencyInstallTimeoutMs });
             const [installResult, tunnelURL] = await Promise.all([
                 this.executeCommand(instanceId, `bun install`, { timeout: dependencyInstallTimeoutMs }),

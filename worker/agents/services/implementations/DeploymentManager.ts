@@ -13,12 +13,18 @@ import { BaseAgentService } from './BaseAgentService';
 import { ServiceOptions } from '../interfaces/IServiceOptions';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { getSandboxService } from '../../../services/sandbox/factory';
+import {
+    DEV_SERVER_READINESS_TIMEOUT_MS,
+    SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS,
+} from '../../../services/sandbox/sandboxSdkClient';
 import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
 import { DeploymentTarget } from '../../core/types';
 import { BaseProjectState } from '../../core/state';
 
-const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
-const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
+export const MIN_SANDBOX_SETUP_TIMEOUT_MS =
+    SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS + DEV_SERVER_READINESS_TIMEOUT_MS;
+export const PER_ATTEMPT_TIMEOUT_MS = MIN_SANDBOX_SETUP_TIMEOUT_MS + 60000;
+export const MASTER_DEPLOYMENT_TIMEOUT_MS = 600000;
 const HEALTH_CHECK_INTERVAL_MS = 30000;
 const SANDBOX_RECREATE_PATH_PATTERNS = [
     /^Scarb\.toml$/,
