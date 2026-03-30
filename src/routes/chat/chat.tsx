@@ -15,7 +15,14 @@ import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import {
+	type ModelConfigsInfo,
+	type BlueprintType,
+	type PhasicBlueprint,
+	SUPPORTED_IMAGE_MIME_TYPES,
+	type ProjectType,
+	type FileType,
+} from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -26,9 +33,18 @@ import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
-import { detectContentType, isDocumentationPath, isMarkdownFile } from './utils/content-detector';
+import {
+	detectContentType,
+	isDocumentationPath,
+	isMarkdownFile,
+} from './utils/content-detector';
 import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
@@ -36,7 +52,9 @@ import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 
-const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
+const isPhasicBlueprint = (
+	blueprint?: BlueprintType | null,
+): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
 
 export default function Chat() {
@@ -62,7 +80,9 @@ export default function Chat() {
 	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
 
 	// If we have an existing app, use its data
-	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
+	const displayQuery = app
+		? app.originalPrompt || app.title
+		: userQuery || '';
 	const appTitle = app?.title;
 
 	// Manual refresh trigger for preview
@@ -162,10 +182,22 @@ export default function Chat() {
 	const { user } = useAuth();
 
 	const navigate = useNavigate();
+	const initialProjectType = urlProjectType as ProjectType;
+	const initialSupportsPreview =
+		featureRegistry.getCapabilities(initialProjectType)?.hasPreview ??
+		false;
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation'>(
-		'editor',
+	const [view, setView] = useState<
+		| 'editor'
+		| 'preview'
+		| 'docs'
+		| 'blueprint'
+		| 'terminal'
+		| 'presentation'
+	>(initialSupportsPreview ? 'preview' : 'editor');
+	const [sessionSupportsPreview, setSessionSupportsPreview] = useState(
+		initialSupportsPreview,
 	);
 
 	// Terminal state
@@ -179,7 +211,9 @@ export default function Chat() {
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
 	// Model config info state
-	const [modelConfigs, setModelConfigs] = useState<ModelConfigsInfo | undefined>();
+	const [modelConfigs, setModelConfigs] = useState<
+		ModelConfigsInfo | undefined
+	>();
 	const [loadingConfigs, setLoadingConfigs] = useState(false);
 
 	// Handler for model config info requests
@@ -187,9 +221,11 @@ export default function Chat() {
 		if (!websocket) return;
 
 		setLoadingConfigs(true);
-		websocket.send(JSON.stringify({
-			type: 'get_model_configs'
-		}));
+		websocket.send(
+			JSON.stringify({
+				type: 'get_model_configs',
+			}),
+		);
 	}, [websocket]);
 
 	// Listen for model config info WebSocket messages
@@ -204,7 +240,10 @@ export default function Chat() {
 					setLoadingConfigs(false);
 				}
 			} catch (error) {
-				logger.error('Error parsing WebSocket message for model configs:', error);
+				logger.error(
+					'Error parsing WebSocket message for model configs:',
+					error,
+				);
 			}
 		};
 
@@ -271,19 +310,22 @@ export default function Chat() {
 	const [newMessage, setNewMessage] = useState('');
 	const [showTooltip, setShowTooltip] = useState(false);
 
-	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
-		onError: (error) => {
-			console.error('Chat image upload error:', error);
-		},
-	});
+	const { images, addImages, removeImage, clearImages, isProcessing } =
+		useImageUpload({
+			onError: (error) => {
+				console.error('Chat image upload error:', error);
+			},
+		});
 	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Fake stream bootstrap files
-	const { streamedFiles: streamedBootstrapFiles } =
-		useFileContentStream(bootstrapFiles, {
+	const { streamedFiles: streamedBootstrapFiles } = useFileContentStream(
+		bootstrapFiles,
+		{
 			tps: 600,
 			enabled: isBootstrapping,
-		});
+		},
+	);
 
 	// Merge streamed bootstrap files with generated files
 	const allFiles = useMemo(() => {
@@ -294,7 +336,7 @@ export default function Chat() {
 				([filePath, fileContents]) => ({
 					filePath,
 					fileContents,
-				})
+				}),
 			);
 			result = mergeFiles(templateFiles, files);
 		} else {
@@ -321,9 +363,14 @@ export default function Chat() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => {
-		setView(mode);
-	}, []);
+	const handleViewModeChange = useCallback(
+		(
+			mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+		) => {
+			setView(mode);
+		},
+		[],
+	);
 
 	const handleResetConversation = useCallback(() => {
 		if (!websocket) return;
@@ -402,7 +449,9 @@ export default function Chat() {
 	]);
 
 	const isPhase1Complete = useMemo(() => {
-		return phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed';
+		return (
+			phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed'
+		);
 	}, [phaseTimeline]);
 
 	const isGitHubExportReady = useMemo(() => {
@@ -415,7 +464,9 @@ export default function Chat() {
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
 		if (behaviorType !== 'agentic' || files.length === 0) return false;
-		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
+		return files.every((file) =>
+			isDocumentationPath(file.filePath.toLowerCase()),
+		);
 	}, [behaviorType, files]);
 
 	// Detect content type (documentation detection - works in any projectType)
@@ -423,9 +474,23 @@ export default function Chat() {
 		return detectContentType(files);
 	}, [files]);
 
-    const hasDocumentation = useMemo(() => {
-        return Object.values(contentDetection.Contents).some(bundle => bundle.type === 'markdown');
-    }, [contentDetection]);
+	const hasDocumentation = useMemo(() => {
+		return Object.values(contentDetection.Contents).some(
+			(bundle) => bundle.type === 'markdown',
+		);
+	}, [contentDetection]);
+
+	const supportsPreview = useMemo(() => {
+		return (
+			featureRegistry.getCapabilities(projectType)?.hasPreview ?? false
+		);
+	}, [projectType]);
+
+	useEffect(() => {
+		if (supportsPreview) {
+			setSessionSupportsPreview(true);
+		}
+	}, [supportsPreview]);
 
 	// Preview available based on projectType and content
 	const previewAvailable = useMemo(() => {
@@ -433,22 +498,53 @@ export default function Chat() {
 		return false;
 	}, [hasDocumentation, previewUrl]);
 
+	const shouldKeepPreviewMounted = useMemo(() => {
+		return view === 'preview' && !isStaticContent;
+	}, [view, isStaticContent]);
+
+	const showPreviewTab = useMemo(() => {
+		return sessionSupportsPreview && !isStaticContent;
+	}, [sessionSupportsPreview, isStaticContent]);
+
 	const showMainView = useMemo(() => {
+		if (sessionSupportsPreview) {
+			return true;
+		}
+
 		// For agentic mode: show preview panel when files exist or preview URL exists
 		if (behaviorType === 'agentic') {
 			const hasFiles = files.length > 0;
 			const hasPreview = !!previewUrl;
-			const result = hasFiles || hasPreview;
+			const result = hasFiles || hasPreview || shouldKeepPreviewMounted;
 			return result;
 		}
 		// For phasic mode: keep existing logic
-		const result = streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
+		const result =
+			streamedBootstrapFiles.length > 0 ||
+			!!blueprint ||
+			files.length > 0 ||
+			shouldKeepPreviewMounted;
 		return result;
-	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
+	}, [
+		behaviorType,
+		blueprint,
+		files.length,
+		previewUrl,
+		streamedBootstrapFiles.length,
+		sessionSupportsPreview,
+		shouldKeepPreviewMounted,
+	]);
+
+	const isPreviewPending = useMemo(() => {
+		return showPreviewTab && !previewUrl;
+	}, [showPreviewTab, previewUrl]);
 
 	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
 
-	const { scrollToBottom } = useAutoScroll(messagesContainerRef, { behavior: 'smooth', watch: [messages] });
+	const { scrollToBottom } = useAutoScroll(messagesContainerRef, {
+		behavior: 'smooth',
+		watch: [messages],
+	});
 
 	const prevMessagesLengthRef = useRef(0);
 
@@ -464,11 +560,17 @@ export default function Chat() {
 		if (hasSeenPreview.current) return;
 
 		const markdownFiles = files.filter(isMarkdownFile);
-		const isGeneratingMarkdown = markdownFiles.some(f => f.isGenerating);
-		const newMarkdownAdded = markdownFiles.length > prevMarkdownCountRef.current;
+		const isGeneratingMarkdown = markdownFiles.some((f) => f.isGenerating);
+		const newMarkdownAdded =
+			markdownFiles.length > prevMarkdownCountRef.current;
 
 		// Auto-switch to docs ONLY when NEW markdown is being generated
-		if (hasDocumentation && newMarkdownAdded && isGeneratingMarkdown) {
+		if (
+			hasDocumentation &&
+			newMarkdownAdded &&
+			isGeneratingMarkdown &&
+			!sessionSupportsPreview
+		) {
 			setView('docs');
 			setShowTooltip(true);
 			setTimeout(() => setShowTooltip(false), 3000);
@@ -496,11 +598,26 @@ export default function Chat() {
 				}, 3000);
 				hasSeenPreview.current = true;
 			}
+		} else if (isPreviewPending) {
+			setView('preview');
+			hasSeenPreview.current = true;
 		}
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId]);
+	}, [
+		previewUrl,
+		isPreviewPending,
+		isPhase1Complete,
+		isStaticContent,
+		files,
+		activeFilePath,
+		behaviorType,
+		hasDocumentation,
+		projectType,
+		sessionSupportsPreview,
+		urlChatId,
+	]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -544,17 +661,26 @@ export default function Chat() {
 	}, [generatingFile, activeFile]);
 
 	useEffect(() => {
-		if (view !== 'blueprint' && isGeneratingBlueprint) {
+		if (
+			view !== 'blueprint' &&
+			isGeneratingBlueprint &&
+			!shouldKeepPreviewMounted
+		) {
 			setView('blueprint');
 		} else if (
 			!hasSwitchedFile.current &&
 			view === 'blueprint' &&
 			!isGeneratingBlueprint
 		) {
-			setView('editor');
+			setView(isPreviewPending ? 'preview' : 'editor');
 		}
-	}, [isGeneratingBlueprint, view]);
-    
+	}, [
+		isGeneratingBlueprint,
+		isPreviewPending,
+		shouldKeepPreviewMounted,
+		view,
+	]);
+
 	const isRunning = useMemo(() => {
 		return (
 			isBootstrapping || isGeneratingBlueprint // || codeGenState === 'active'
@@ -566,17 +692,19 @@ export default function Chat() {
 		const blueprintStage = projectStages.find(
 			(stage) => stage.id === 'blueprint',
 		);
-		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
+		const blueprintNotCompleted =
+			!blueprintStage || blueprintStage.status !== 'completed';
 
 		return blueprintNotCompleted || isDebugging;
 	}, [projectStages, isDebugging]);
 
 	const chatFormRef = useRef<HTMLFormElement>(null);
-	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } = useDragDrop({
-		onFilesDropped: addImages,
-		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
-		disabled: isChatDisabled,
-	});
+	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } =
+		useDragDrop({
+			onFilesDropped: addImages,
+			accept: [...SUPPORTED_IMAGE_MIME_TYPES],
+			disabled: isChatDisabled,
+		});
 
 	const onNewMessage = useCallback(
 		(e: FormEvent) => {
@@ -604,18 +732,32 @@ export default function Chat() {
 			// Ensure we scroll after sending our own message
 			requestAnimationFrame(() => scrollToBottom());
 		},
-		[newMessage, websocket, sendUserMessage, isChatDisabled, scrollToBottom, images, clearImages],
+		[
+			newMessage,
+			websocket,
+			sendUserMessage,
+			isChatDisabled,
+			scrollToBottom,
+			images,
+			clearImages,
+		],
 	);
 
 	const [progress, total] = useMemo((): [number, number] => {
 		// Calculate phase progress instead of file progress
-		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
+		const completedPhases = phaseTimeline.filter(
+			(p) => p.status === 'completed',
+		).length;
 
 		// Get predicted phase count from blueprint, fallback to current phase count
 		const predictedPhaseCount = isPhasicBlueprint(blueprint)
 			? blueprint.implementationRoadmap.length
 			: 0;
-		const totalPhases = Math.max(predictedPhaseCount, phaseTimeline.length, 1);
+		const totalPhases = Math.max(
+			predictedPhaseCount,
+			phaseTimeline.length,
+			1,
+		);
 
 		return [completedPhases, totalPhases];
 	}, [phaseTimeline, blueprint]);
@@ -653,13 +795,13 @@ export default function Chat() {
 					layout="position"
 					className="flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0"
 				>
-					<div 
-					className={clsx(
-						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
-						isDebugging && 'animate-debug-pulse'
-					)} 
-					ref={messagesContainerRef}
-				>
+					<div
+						className={clsx(
+							'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+							isDebugging && 'animate-debug-pulse',
+						)}
+						ref={messagesContainerRef}
+					>
 						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
 							{appLoading ? (
 								<div className="flex items-center gap-2 text-text-tertiary">
@@ -669,10 +811,12 @@ export default function Chat() {
 							) : (
 								<>
 									{(appTitle || chatId) && (
-								<div className="flex items-center justify-between mb-2">
-									<div className="text-lg font-semibold">{appTitle}</div>
-								</div>
-							)}
+										<div className="flex items-center justify-between mb-2">
+											<div className="text-lg font-semibold">
+												{appTitle}
+											</div>
+										</div>
+									)}
 									<UserMessage
 										message={query ?? displayQuery}
 									/>
@@ -680,46 +824,60 @@ export default function Chat() {
 							)}
 
 							{mainMessage && (
-							<div className="relative">
-								<AIMessage
-									message={mainMessage.content}
-									isThinking={mainMessage.ui?.isThinking}
-									toolEvents={mainMessage.ui?.toolEvents}
-								/>
-								{chatId && (
-									<div className="absolute right-1 top-1">
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="hover:bg-bg-3/80 cursor-pointer"
+								<div className="relative">
+									<AIMessage
+										message={mainMessage.content}
+										isThinking={mainMessage.ui?.isThinking}
+										toolEvents={mainMessage.ui?.toolEvents}
+									/>
+									{chatId && (
+										<div className="absolute right-1 top-1">
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="hover:bg-bg-3/80 cursor-pointer"
+													>
+														<MoreHorizontal className="h-4 w-4" />
+														<span className="sr-only">
+															Chat actions
+														</span>
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent
+													align="end"
+													className="w-56"
 												>
-													<MoreHorizontal className="h-4 w-4" />
-													<span className="sr-only">Chat actions</span>
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-56">
-												<DropdownMenuItem
+													<DropdownMenuItem
 														onClick={(e) => {
 															e.preventDefault();
-															setIsResetDialogOpen(true);
+															setIsResetDialogOpen(
+																true,
+															);
 														}}
-												>
-													<RotateCcw className="h-4 w-4 mr-2" />
-													Reset conversation
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</div>
-								)}
-							</div>
-						)}
+													>
+														<RotateCcw className="h-4 w-4 mr-2" />
+														Reset conversation
+													</DropdownMenuItem>
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</div>
+									)}
+								</div>
+							)}
 
 							{otherMessages
-								.filter(message => message.role === 'assistant' && message.ui?.isThinking)
+								.filter(
+									(message) =>
+										message.role === 'assistant' &&
+										message.ui?.isThinking,
+								)
 								.map((message) => (
-									<div key={message.conversationId} className="mb-4">
+									<div
+										key={message.conversationId}
+										className="mb-4"
+									>
 										<AIMessage
 											message={message.content}
 											isThinking={true}
@@ -728,14 +886,17 @@ export default function Chat() {
 									</div>
 								))}
 
-							{isThinking && !otherMessages.some(m => m.ui?.isThinking) && (
-								<div className="mb-4">
-									<AIMessage
-										message="Planning next phase..."
-										isThinking={true}
-									/>
-								</div>
-							)}
+							{isThinking &&
+								!otherMessages.some(
+									(m) => m.ui?.isThinking,
+								) && (
+									<div className="mb-4">
+										<AIMessage
+											message="Planning next phase..."
+											isThinking={true}
+										/>
+									</div>
+								)}
 
 							{/* Only show PhaseTimeline for phasic mode */}
 							{behaviorType !== 'agentic' && (
@@ -758,7 +919,9 @@ export default function Chat() {
 									chatId={chatId}
 									isDeploying={isDeploying}
 									deploymentUrl={cloudflareDeploymentUrl}
-									handleDeployToCloudflare={handleDeployToCloudflare}
+									handleDeployToCloudflare={
+										handleDeployToCloudflare
+									}
 									runtimeErrorCount={runtimeErrorCount}
 									staticIssueCount={staticIssueCount}
 									isDebugging={isDebugging}
@@ -778,7 +941,9 @@ export default function Chat() {
 									className="px-4 mb-6"
 								>
 									<DeploymentControls
-										isGenerationComplete={isGenerationComplete}
+										isGenerationComplete={
+											isGenerationComplete
+										}
 										isDeploying={isDeploying}
 										deploymentUrl={cloudflareDeploymentUrl}
 										instanceId={chatId || ''}
@@ -807,15 +972,19 @@ export default function Chat() {
 							)}
 
 							{otherMessages
-								.filter(message => !message.ui?.isThinking)
+								.filter((message) => !message.ui?.isThinking)
 								.map((message) => {
 									if (message.role === 'assistant') {
 										return (
 											<AIMessage
 												key={message.conversationId}
 												message={message.content}
-												isThinking={message.ui?.isThinking}
-												toolEvents={message.ui?.toolEvents}
+												isThinking={
+													message.ui?.isThinking
+												}
+												toolEvents={
+													message.ui?.toolEvents
+												}
 											/>
 										);
 									}
@@ -826,30 +995,28 @@ export default function Chat() {
 										/>
 									);
 								})}
-
 						</div>
 					</div>
 
-
-				<ChatInput
-					newMessage={newMessage}
-					onMessageChange={setNewMessage}
-					onSubmit={onNewMessage}
-					images={images}
-					onAddImages={addImages}
-					onRemoveImage={removeImage}
-					isProcessing={isProcessing}
-					isChatDragging={isChatDragging}
-					chatDragHandlers={chatDragHandlers}
-					isChatDisabled={isChatDisabled}
-					isRunning={isRunning}
-					isGenerating={isGenerating}
-					isGeneratingBlueprint={isGeneratingBlueprint}
-					isDebugging={isDebugging}
-					websocket={websocket}
-					chatFormRef={chatFormRef}
-					imageInputRef={imageInputRef}
-				/>
+					<ChatInput
+						newMessage={newMessage}
+						onMessageChange={setNewMessage}
+						onSubmit={onNewMessage}
+						images={images}
+						onAddImages={addImages}
+						onRemoveImage={removeImage}
+						isProcessing={isProcessing}
+						isChatDragging={isChatDragging}
+						chatDragHandlers={chatDragHandlers}
+						isChatDisabled={isChatDisabled}
+						isRunning={isRunning}
+						isGenerating={isGenerating}
+						isGeneratingBlueprint={isGeneratingBlueprint}
+						isDebugging={isDebugging}
+						websocket={websocket}
+						chatFormRef={chatFormRef}
+						imageInputRef={imageInputRef}
+					/>
 				</motion.div>
 
 				<AnimatePresence mode="wait">
@@ -869,10 +1036,13 @@ export default function Chat() {
 								projectType={projectType}
 								previewUrl={previewUrl}
 								previewAvailable={previewAvailable}
+								isPreviewPending={isPreviewPending}
 								showTooltip={showTooltip}
 								shouldRefreshPreview={shouldRefreshPreview}
 								manualRefreshTrigger={manualRefreshTrigger}
-								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
+								onManualRefresh={() =>
+									setManualRefreshTrigger(Date.now())
+								}
 								blueprint={blueprint}
 								activeFile={activeFile}
 								allFiles={allFiles}
@@ -883,7 +1053,9 @@ export default function Chat() {
 								modelConfigs={modelConfigs}
 								loadingConfigs={loadingConfigs}
 								onRequestConfigs={handleRequestConfigs}
-								onGitCloneClick={() => setIsGitCloneModalOpen(true)}
+								onGitCloneClick={() =>
+									setIsGitCloneModalOpen(true)
+								}
 								isGitHubExportReady={isGitHubExportReady}
 								githubExport={githubExport}
 								behaviorType={behaviorType}
@@ -913,7 +1085,9 @@ export default function Chat() {
 			/>
 
 			<VaultUnlockModal
-				open={vaultState.unlockRequested && vaultState.status === 'locked'}
+				open={
+					vaultState.unlockRequested && vaultState.status === 'locked'
+				}
 				onOpenChange={(open) => {
 					if (!open) clearUnlockRequest();
 				}}

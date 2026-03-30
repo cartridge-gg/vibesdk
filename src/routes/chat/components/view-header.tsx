@@ -5,8 +5,11 @@ import type { ProjectType } from '@/api-types';
 
 interface ViewHeaderProps {
 	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	onViewChange: (
+		mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+	) => void;
 	previewAvailable: boolean;
+	isPreviewPending: boolean;
 	showTooltip: boolean;
 	hasDocumentation: boolean;
 	previewUrl?: string;
@@ -19,20 +22,24 @@ export function ViewHeader({
 	view,
 	onViewChange,
 	previewAvailable,
+	isPreviewPending,
 	showTooltip,
-    hasDocumentation,
+	hasDocumentation,
 	previewUrl,
 	centerContent,
 	rightActions,
 	projectType,
 }: ViewHeaderProps) {
 	return (
-		<div className={`grid grid-cols-3 ${HEADER_STYLES.padding} ${HEADER_STYLES.container}`}>
+		<div
+			className={`grid grid-cols-3 ${HEADER_STYLES.padding} ${HEADER_STYLES.container}`}
+		>
 			<div className="flex items-center">
 				<ViewModeSwitch
 					view={view}
 					onChange={onViewChange}
 					previewAvailable={previewAvailable}
+					isPreviewPending={isPreviewPending}
 					showTooltip={showTooltip}
 					hasDocumentation={hasDocumentation}
 					previewUrl={previewUrl}
@@ -42,9 +49,7 @@ export function ViewHeader({
 			<div className="flex items-center justify-center">
 				{centerContent}
 			</div>
-			<div className="flex items-center justify-end">
-				{rightActions}
-			</div>
+			<div className="flex items-center justify-end">{rightActions}</div>
 		</div>
 	);
 }

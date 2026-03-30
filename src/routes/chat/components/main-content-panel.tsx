@@ -1,4 +1,10 @@
-import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
+import {
+	type RefObject,
+	type ReactNode,
+	Suspense,
+	useState,
+	useCallback,
+} from 'react';
 import { WebSocket } from 'partysocket';
 import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
@@ -13,15 +19,30 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { featureRegistry } from '@/features';
-import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
+import type {
+	FileType,
+	BlueprintType,
+	BehaviorType,
+	ModelConfigsInfo,
+	TemplateDetails,
+	ProjectType,
+} from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
 
 interface MainContentPanelProps {
 	// View state
-	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view:
+		| 'editor'
+		| 'preview'
+		| 'docs'
+		| 'blueprint'
+		| 'terminal'
+		| 'presentation';
+	onViewChange: (
+		mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+	) => void;
 
 	// Content detection
 	hasDocumentation: boolean;
@@ -31,6 +52,7 @@ interface MainContentPanelProps {
 	projectType: ProjectType;
 	previewUrl?: string;
 	previewAvailable: boolean;
+	isPreviewPending: boolean;
 	showTooltip: boolean;
 	shouldRefreshPreview: boolean;
 	manualRefreshTrigger: number;
@@ -80,6 +102,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		projectType,
 		previewUrl,
 		previewAvailable,
+		isPreviewPending,
 		showTooltip,
 		shouldRefreshPreview,
 		manualRefreshTrigger,
@@ -105,15 +128,23 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	} = props;
 
 	// Feature-specific state management
-	const [featureState, setFeatureStateInternal] = useState<Record<string, unknown>>({});
+	const [featureState, setFeatureStateInternal] = useState<
+		Record<string, unknown>
+	>({});
 	const setFeatureState = useCallback((key: string, value: unknown) => {
-		setFeatureStateInternal(prev => ({ ...prev, [key]: value }));
+		setFeatureStateInternal((prev) => ({ ...prev, [key]: value }));
 	}, []);
 
 	const commonHeaderProps = {
-		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+		view: view as
+			| 'preview'
+			| 'editor'
+			| 'docs'
+			| 'blueprint'
+			| 'presentation',
 		onViewChange,
 		previewAvailable,
+		isPreviewPending,
 		showTooltip,
 		hasDocumentation,
 		previewUrl,
@@ -124,7 +155,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		centerContent: ReactNode,
 		viewContent: ReactNode,
 		rightActions?: ReactNode,
-		headerOverrides?: Partial<typeof commonHeaderProps>
+		headerOverrides?: Partial<typeof commonHeaderProps>,
 	) => (
 		<ViewContainer>
 			<ViewHeader
@@ -141,35 +172,139 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		if (!hasDocumentation) return null;
 
 		const markdownFiles = Object.values(contentDetection.Contents)
-			.filter(bundle => bundle.type === 'markdown')
-			.flatMap(bundle => bundle.files);
+			.filter((bundle) => bundle.type === 'markdown')
+			.flatMap((bundle) => bundle.files);
 
 		if (markdownFiles.length === 0) return null;
 
 		return renderViewWithHeader(
-			<span className="text-sm font-mono text-text-50/70">Documentation</span>,
+			<span className="text-sm font-mono text-text-50/70">
+				Documentation
+			</span>,
 			<MarkdownDocsPreview
 				files={markdownFiles}
 				isGenerating={isGenerating || isGeneratingBlueprint}
-			/>
+			/>,
 		);
 	};
 
 	const renderPreviewView = () => {
-		if (!previewUrl) {
+		if (!previewUrl && !isPreviewPending) {
 			return null;
 		}
 
 		// Get feature capabilities to determine preview behavior
-		const featureCapabilities = featureRegistry.getCapabilities(projectType);
+		const featureCapabilities =
+			featureRegistry.getCapabilities(projectType);
 		const featureDefinition = featureRegistry.getDefinition(projectType);
-		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
+		const previewTitle =
+			blueprint?.title ?? featureDefinition?.name ?? 'Preview';
+		const previewLoadingContent = (
+			<div className="flex-1 bg-bg-3 px-6 py-8 lg:px-10">
+				<div className="flex h-full items-center justify-center">
+					<div className="w-full max-w-xl rounded-3xl border border-border-primary bg-gradient-to-br from-bg-2 via-bg-3 to-bg-2/80 p-8 shadow-lg shadow-bg-1/30">
+						<div className="mb-6 flex items-center justify-between">
+							<div>
+								<p className="text-xs font-mono uppercase tracking-[0.24em] text-text-50/50">
+									Live Preview
+								</p>
+								<h3 className="mt-2 text-2xl font-semibold text-text-primary">
+									Preparing your preview
+								</h3>
+							</div>
+							<div className="flex size-14 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10">
+								<RefreshCw className="size-6 animate-spin text-accent" />
+							</div>
+						</div>
+
+						<p className="max-w-lg text-sm leading-6 text-text-primary/70">
+							The app is still being assembled and deployed. This
+							view will switch to the live preview as soon as it
+							is ready.
+						</p>
+
+						<div className="mt-8 rounded-2xl border border-border-primary bg-bg-2/70 p-5">
+							<div className="flex items-center gap-3">
+								<div className="flex gap-2">
+									{[0, 1, 2].map((index) => (
+										<motion.div
+											key={index}
+											className="size-2.5 rounded-full bg-accent"
+											animate={{
+												opacity: [0.25, 1, 0.25],
+												y: [0, -4, 0],
+											}}
+											transition={{
+												duration: 1.2,
+												repeat: Infinity,
+												ease: 'easeInOut',
+												delay: index * 0.16,
+											}}
+										/>
+									))}
+								</div>
+								<span className="text-sm font-medium text-text-primary/80">
+									Work in progress
+								</span>
+							</div>
+
+							<div className="mt-5 space-y-3">
+								<div className="h-2 overflow-hidden rounded-full bg-bg-4">
+									<motion.div
+										className="h-full rounded-full bg-gradient-to-r from-accent/50 via-accent to-accent/50"
+										animate={{ x: ['-55%', '115%'] }}
+										transition={{
+											duration: 1.8,
+											repeat: Infinity,
+											ease: 'easeInOut',
+										}}
+										style={{ width: '45%' }}
+									/>
+								</div>
+								<div className="grid gap-2 sm:grid-cols-2">
+									<div className="rounded-xl border border-border-primary bg-bg-3/80 p-3">
+										<p className="text-xs font-mono uppercase tracking-[0.18em] text-text-50/45">
+											Status
+										</p>
+										<p className="mt-2 text-sm text-text-primary/75">
+											Waiting for the web preview to come
+											online.
+										</p>
+									</div>
+									<div className="rounded-xl border border-border-primary bg-bg-3/80 p-3">
+										<p className="text-xs font-mono uppercase tracking-[0.18em] text-text-50/45">
+											Code
+										</p>
+										<p className="mt-2 text-sm text-text-primary/75">
+											You can still open the editor tab
+											while this loads.
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
 
 		// Check if we should show the refresh button (presentations handle refresh differently)
 		const showManualRefresh = featureCapabilities?.hasLiveReload ?? true;
 
+		if (!previewUrl) {
+			return renderViewWithHeader(
+				<div className="flex items-center gap-2">
+					<span className="text-sm font-mono text-text-50/70">
+						{previewTitle}
+					</span>
+				</div>,
+				previewLoadingContent,
+			);
+		}
+
 		// Get lazy-loaded preview component from feature registry
-		const FeaturePreviewComponent = featureRegistry.getLazyPreviewComponent(projectType);
+		const FeaturePreviewComponent =
+			featureRegistry.getLazyPreviewComponent(projectType);
 
 		// Fallback to default PreviewIframe if no feature-specific component
 		const previewContent = FeaturePreviewComponent ? (
@@ -188,7 +323,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					files={allFiles}
 					activeFile={activeFile}
 					currentView={view}
-					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					onViewChange={(v) =>
+						onViewChange(
+							v as
+								| 'preview'
+								| 'editor'
+								| 'docs'
+								| 'blueprint'
+								| 'presentation',
+						)
+					}
 					templateDetails={templateDetails}
 					modelConfigs={modelConfigs}
 					blueprint={blueprint}
@@ -215,7 +359,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 
 		// Get lazy-loaded header actions component from feature registry
-		const FeatureHeaderActionsComponent = featureRegistry.getLazyHeaderActionsComponent(projectType);
+		const FeatureHeaderActionsComponent =
+			featureRegistry.getLazyHeaderActionsComponent(projectType);
 
 		// Fallback to PreviewHeaderActions if no feature-specific component
 		const headerActions = FeatureHeaderActionsComponent ? (
@@ -228,7 +373,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					files={allFiles}
 					activeFile={activeFile}
 					currentView={view}
-					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					onViewChange={(v) =>
+						onViewChange(
+							v as
+								| 'preview'
+								| 'editor'
+								| 'docs'
+								| 'blueprint'
+								| 'presentation',
+						)
+					}
 					templateDetails={templateDetails}
 					modelConfigs={modelConfigs}
 					blueprint={blueprint}
@@ -275,14 +429,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				)}
 			</div>,
 			previewContent,
-			headerActions
+			headerActions,
 		);
 	};
 
 	const renderBlueprintView = () =>
 		renderViewWithHeader(
 			<div className="flex items-center gap-2">
-				<span className="text-sm text-text-50/70 font-mono">Blueprint.md</span>
+				<span className="text-sm text-text-50/70 font-mono">
+					Blueprint.md
+				</span>
 				{previewUrl && <Copy text={previewUrl} />}
 			</div>,
 			<div className="flex-1 overflow-y-auto bg-bg-3">
@@ -292,7 +448,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						className="w-full max-w-2xl mx-auto"
 					/>
 				</div>
-			</div>
+			</div>,
 		);
 
 	const renderEditorView = () => {
@@ -300,7 +456,9 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		if (!activeFile) {
 			return renderViewWithHeader(
 				<div className="flex items-center gap-2">
-					<span className="text-sm font-mono text-text-50/70">Select a file</span>
+					<span className="text-sm font-mono text-text-50/70">
+						Select a file
+					</span>
 				</div>,
 				<div className="flex-1 relative">
 					<div className="absolute inset-0 flex" ref={editorRef}>
@@ -310,7 +468,9 @@ export function MainContentPanel(props: MainContentPanelProps) {
 							onFileClick={onFileClick}
 						/>
 						<div className="flex-1 flex items-center justify-center bg-bg-3">
-							<span className="text-text-50/50 text-sm">No file selected</span>
+							<span className="text-text-50/50 text-sm">
+								No file selected
+							</span>
 						</div>
 					</div>
 				</div>,
@@ -322,13 +482,15 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					isGitHubExportReady={isGitHubExportReady}
 					onGitHubExportClick={githubExport.openModal}
 					editorRef={editorRef}
-				/>
+				/>,
 			);
 		}
 
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">
-				<span className="text-sm font-mono text-text-50/70">{activeFile.filePath}</span>
+				<span className="text-sm font-mono text-text-50/70">
+					{activeFile.filePath}
+				</span>
 				{previewUrl && <Copy text={previewUrl} />}
 			</div>,
 			<div className="flex-1 relative">
@@ -352,8 +514,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 								theme: 'vibesdk',
 								automaticLayout: true,
 							}}
-							find={edit?.filePath === activeFile.filePath ? edit.search : undefined}
-							replace={edit?.filePath === activeFile.filePath ? edit.replacement : undefined}
+							find={
+								edit?.filePath === activeFile.filePath
+									? edit.search
+									: undefined
+							}
+							replace={
+								edit?.filePath === activeFile.filePath
+									? edit.replacement
+									: undefined
+							}
 						/>
 					</div>
 				</div>
@@ -366,7 +536,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				isGitHubExportReady={isGitHubExportReady}
 				onGitHubExportClick={githubExport.openModal}
 				editorRef={editorRef}
-			/>
+			/>,
 		);
 	};
 

@@ -14,30 +14,38 @@ export function ViewModeSwitch({
 	view,
 	onChange,
 	previewAvailable = false,
+	isPreviewPending = false,
 	showTooltip = false,
 	hasDocumentation = false,
 	previewUrl,
 	projectType,
 }: {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation'
-	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation';
+	onChange: (
+		mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+	) => void;
 	previewAvailable: boolean;
+	isPreviewPending: boolean;
 	showTooltip: boolean;
 	hasDocumentation: boolean;
 	previewUrl?: string;
 	projectType?: ProjectType;
 }) {
 	// Get feature definition to determine icon and label
-	const featureDefinition = projectType ? featureRegistry.getDefinition(projectType) : null;
+	const featureDefinition = projectType
+		? featureRegistry.getDefinition(projectType)
+		: null;
 
 	// Get the preview view definition to find the icon
-	const featureModule = projectType ? featureRegistry.getModule(projectType) : null;
+	const featureModule = projectType
+		? featureRegistry.getModule(projectType)
+		: null;
 	const views = featureModule?.getViews() ?? [];
-	const previewView = views.find(v => v.id === 'preview');
+	const previewView = views.find((v) => v.id === 'preview');
 	const iconName = previewView?.iconName;
 	const PreviewIcon = (iconName && ICON_MAP[iconName]) || Eye;
 
-	if (!previewAvailable) {
+	if (!previewAvailable && !isPreviewPending) {
 		return null;
 	}
 
@@ -57,7 +65,7 @@ export function ViewModeSwitch({
 			</AnimatePresence>
 
 			{/* Preview button - show when app has preview URL */}
-			{previewUrl && (
+			{(previewUrl || isPreviewPending) && (
 				<button
 					onClick={() => onChange('preview')}
 					className={clsx(
