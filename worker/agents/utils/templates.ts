@@ -16,9 +16,9 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "preview": "npm run build && vite preview --host 0.0.0.0 --port \${PORT:-8001}",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
-    "dojo:devnet": "katana --dev --http.api dev,starknet --dev.no-fee --http.cors_origins '*'",
+    "dojo:devnet": "katana --dev --http.port \${KATANA_PORT:-5050} --http.api dev,starknet --dev.no-fee --http.cors_origins '*'",
     "dojo:build": "sozo build",
-    "dojo:migrate": "sozo build && sozo migrate apply",
+    "dojo:migrate": "sozo build && sozo migrate apply --rpc-url \${STARKNET_RPC_URL:-http://127.0.0.1:5050}",
     "dojo:indexer": "bash ./scripts/torii.sh",
     "dojo:check": "bash ./scripts/dojo-check.sh"
   },
@@ -86,6 +86,10 @@ import tailwindcss from '@tailwindcss/vite';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import wasm from 'vite-plugin-wasm';
 
+const previewPort = Number(process.env.PORT ?? '8001');
+const katanaPort = Number(process.env.KATANA_PORT ?? String(previewPort + 1000));
+const toriiPort = Number(process.env.TORII_PORT ?? String(previewPort + 2000));
+
 export default defineConfig({
   plugins: [
     react(),
@@ -102,6 +106,18 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     strictPort: true,
+    proxy: {
+      '/__dojo/katana': {
+        target: \`http://127.0.0.1:\${katanaPort}\`,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\\/__dojo\\/katana/, ''),
+      },
+      '/__dojo/torii': {
+        target: \`http://127.0.0.1:\${toriiPort}\`,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\\/__dojo\\/torii/, ''),
+      },
+    },
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
@@ -232,7 +248,15 @@ import {
   cartridgeProvider,
 } from '@starknet-react/core';
 
-const KATANA_RPC_URL = 'http://127.0.0.1:5050';
+function getDojoServiceUrl(path: string): string {
+  if (typeof window === 'undefined') {
+    return path;
+  }
+
+  return new URL(path, window.location.origin).toString();
+}
+
+const KATANA_RPC_URL = getDojoServiceUrl('/__dojo/katana');
 const KATANA_DEV_CHAIN_ID = '0x534e5f5345504f4c4941';
 
 const katana = {
@@ -357,8 +381,6 @@ import { useEffect, useState } from 'react';
 import {
   DojoProvider,
   KATANA_ETH_CONTRACT_ADDRESS,
-  LOCAL_KATANA,
-  LOCAL_TORII,
   createDojoConfig,
   getContractByName,
 } from '@dojoengine/core';
@@ -396,10 +418,21 @@ interface ManifestContract {
 
 type DojoSchema = SchemaType;
 
+function getDojoServiceUrl(path: string): string {
+  if (typeof window === 'undefined') {
+    return path;
+  }
+
+  return new URL(path, window.location.origin).toString();
+}
+
+const KATANA_RPC_URL = getDojoServiceUrl('/__dojo/katana');
+const TORII_URL = getDojoServiceUrl('/__dojo/torii');
+
 const dojoConfig = createDojoConfig({
   manifest,
-  rpcUrl: LOCAL_KATANA,
-  toriiUrl: LOCAL_TORII,
+  rpcUrl: KATANA_RPC_URL,
+  toriiUrl: TORII_URL,
   feeTokenAddress: KATANA_ETH_CONTRACT_ADDRESS,
 });
 
@@ -959,6 +992,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
 PORT="\${PORT:-8001}"
+KATANA_PORT="\${KATANA_PORT:-$((PORT + 1000))}"
+TORII_PORT="\${TORII_PORT:-$((PORT + 2000))}"
+KATANA_RPC_URL="http://127.0.0.1:\${KATANA_PORT}"
 
 cd "$ROOT_DIR"
 mkdir -p .dojo
@@ -977,7 +1013,7 @@ trap cleanup EXIT INT TERM
 
 wait_for_rpc() {
   for _ in $(seq 1 60); do
-    if curl -sS -X POST http://127.0.0.1:5050/ \
+    if curl -sS -X POST "$KATANA_RPC_URL" \
       -H 'content-type: application/json' \
       --data '{"jsonrpc":"2.0","id":1,"method":"starknet_chainId","params":[]}' | grep -q '"result"'; then
       return 0
@@ -1002,12 +1038,12 @@ wait_for_http() {
   return 1
 }
 
-katana --dev --http.api dev,starknet --dev.no-fee --http.cors_origins '*' > .dojo/katana.log 2>&1 &
+katana --dev --http.port "$KATANA_PORT" --http.api dev,starknet --dev.no-fee --http.cors_origins '*' > .dojo/katana.log 2>&1 &
 KATANA_PID=$!
 
 wait_for_rpc
 sozo build
-sozo migrate apply
+sozo migrate apply --rpc-url "$KATANA_RPC_URL"
 
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
@@ -1015,9 +1051,9 @@ if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
   exit 1
 fi
 
-torii --world "$WORLD_ADDRESS" --rpc "http://127.0.0.1:5050" --http.cors_origins '*' > .dojo/torii.log 2>&1 &
+torii --world "$WORLD_ADDRESS" --rpc "$KATANA_RPC_URL" --http.port "$TORII_PORT" --http.cors_origins '*' > .dojo/torii.log 2>&1 &
 TORII_PID=$!
-wait_for_http "http://127.0.0.1:8080"
+wait_for_http "http://127.0.0.1:$TORII_PORT"
 
 bunx vite --host 0.0.0.0 --port "$PORT" &
 VITE_PID=$!
@@ -1027,6 +1063,11 @@ wait "$VITE_PID"
 const HELLO_WORLD_VITE_TORII_SCRIPT = `#!/usr/bin/env bash
 set -euo pipefail
 
+PORT="\${PORT:-8001}"
+KATANA_PORT="\${KATANA_PORT:-$((PORT + 1000))}"
+TORII_PORT="\${TORII_PORT:-$((PORT + 2000))}"
+KATANA_RPC_URL="http://127.0.0.1:\${KATANA_PORT}"
+
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
@@ -1034,13 +1075,18 @@ if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
   exit 1
 fi
 
-torii --world "$WORLD_ADDRESS" --rpc "http://127.0.0.1:5050" --http.cors_origins '*'
+torii --world "$WORLD_ADDRESS" --rpc "$KATANA_RPC_URL" --http.port "$TORII_PORT" --http.cors_origins '*'
 `;
 
 const HELLO_WORLD_VITE_DOJO_CHECK_SCRIPT = `#!/usr/bin/env bash
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+PORT="\${PORT:-8001}"
+KATANA_PORT="\${KATANA_PORT:-$((PORT + 1000))}"
+TORII_PORT="\${TORII_PORT:-$((PORT + 2000))}"
+KATANA_RPC_URL="http://127.0.0.1:\${KATANA_PORT}"
+
 cd "$ROOT_DIR"
 mkdir -p .dojo
 
@@ -1058,7 +1104,7 @@ trap cleanup EXIT INT TERM
 
 wait_for_rpc() {
   for _ in $(seq 1 60); do
-    if curl -sS -X POST http://127.0.0.1:5050/ \
+    if curl -sS -X POST "$KATANA_RPC_URL" \
       -H 'content-type: application/json' \
       --data '{"jsonrpc":"2.0","id":1,"method":"starknet_chainId","params":[]}' | grep -q '"result"'; then
       return 0
@@ -1083,12 +1129,12 @@ wait_for_http() {
   return 1
 }
 
-katana --dev --http.api dev,starknet --dev.no-fee --http.cors_origins '*' > .dojo/katana-check.log 2>&1 &
+katana --dev --http.port "$KATANA_PORT" --http.api dev,starknet --dev.no-fee --http.cors_origins '*' > .dojo/katana-check.log 2>&1 &
 KATANA_PID=$!
 
 wait_for_rpc
 sozo build
-sozo migrate apply
+sozo migrate apply --rpc-url "$KATANA_RPC_URL"
 
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
@@ -1096,9 +1142,9 @@ if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
   exit 1
 fi
 
-torii --world "$WORLD_ADDRESS" --rpc "http://127.0.0.1:5050" --http.cors_origins '*' > .dojo/torii-check.log 2>&1 &
+torii --world "$WORLD_ADDRESS" --rpc "$KATANA_RPC_URL" --http.port "$TORII_PORT" --http.cors_origins '*' > .dojo/torii-check.log 2>&1 &
 TORII_PID=$!
-wait_for_http "http://127.0.0.1:8080"
+wait_for_http "http://127.0.0.1:$TORII_PORT"
 `;
 
 const HELLO_WORLD_VITE_CSS = `@import "tailwindcss";
