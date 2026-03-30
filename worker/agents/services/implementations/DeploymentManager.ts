@@ -433,9 +433,13 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 return preview;
 
             } catch (error) {
-                logger.warn(`Deployment attempt ${attempt} failed:`, error);
-
                 const errorMsg = error instanceof Error ? error.message : String(error);
+                logger.warn(`Deployment attempt ${attempt} failed`, {
+                    attempt,
+                    sessionId: this.getSessionId(),
+                    sandboxInstanceId: this.getState().sandboxInstanceId,
+                    error: errorMsg,
+                });
 
                 // Handle specific errors that require session reset
                 if (errorMsg.includes('Network connection lost') ||

@@ -87,6 +87,14 @@ const DEFAULT_PREVIEW_PORT = 8001;
 const SHARED_SANDBOX_PREVIEW_PORTS = Array.from({ length: 10 }, (_, index) => DEFAULT_PREVIEW_PORT + index);
 export const DEV_SERVER_READINESS_TIMEOUT_MS = 120000;
 export const SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS = 180000;
+
+function truncateLogSnippet(value: string, maxLength: number = 1200): string {
+    if (value.length <= maxLength) {
+        return value;
+    }
+
+    return `${value.slice(0, maxLength)}...[truncated ${value.length - maxLength} chars]`;
+}
   
 function getAutoAllocatedSandbox(sessionId: string): string {
     // Distribute sessions across available containers using consistent hashing
@@ -599,6 +607,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         const startTime = Date.now();
         const pollIntervalMs = 2000;
         const maxAttempts = Math.ceil(maxWaitTimeMs / pollIntervalMs);
+        let lastLogSnippet = '';
         
         // Patterns that indicate Vite specifically is ready. Avoid generic HTTP URLs because
         // the Dojo bootstrap prints Katana/Torii endpoints long before the app port is live.
@@ -641,8 +650,14 @@ export class SandboxSdkClient extends BaseSandboxService {
                 if (attempt === 1 || attempt % 5 === 0) {
                     const logsResult = await this.getLogs(instanceId, true);
                     
-                    if (logsResult.success && logsResult.logs.stdout) {
-                        const logs = logsResult.logs.stdout;
+                    if (logsResult.success) {
+                        const logs = [logsResult.logs.stdout, logsResult.logs.stderr]
+                            .filter((value) => value.trim().length > 0)
+                            .join('\n');
+
+                        if (logs.length > 0) {
+                            lastLogSnippet = truncateLogSnippet(logs);
+                        }
                         
                         // Check for any readiness pattern
                         for (const pattern of readinessPatterns) {
@@ -675,7 +690,14 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
         
         const elapsedTime = Date.now() - startTime;
-        this.logger.warn('Development server readiness timeout', { instanceId, elapsedTimeMs: elapsedTime, totalAttempts: maxAttempts });
+        this.logger.warn('Development server readiness timeout', {
+            instanceId,
+            processId,
+            port,
+            elapsedTimeMs: elapsedTime,
+            totalAttempts: maxAttempts,
+            lastLogSnippet,
+        });
         return false;
     }
 
@@ -689,7 +711,12 @@ export class SandboxSdkClient extends BaseSandboxService {
             const process = await session.startProcess(
                 `VITE_LOGGER_TYPE=json PORT=${port} monitor-cli process start --instance-id ${instanceId} --port ${port} -- ${initCommand}`
             );
-            this.logger.info('Development server started', { instanceId, processId: process.id });
+            this.logger.info('Development server started', {
+                instanceId,
+                processId: process.id,
+                port,
+                initCommand,
+            });
             
             // Wait for the server to be ready (non-blocking - always returns the process ID)
             try {
@@ -991,13 +1018,20 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             const dependencyInstallTimeoutMs = SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS;
             this.logger.info('Installing dependencies', { instanceId, dependencyInstallTimeoutMs });
+            const installStartTime = Date.now();
             const [installResult, tunnelURL] = await Promise.all([
                 this.executeCommand(instanceId, `bun install`, { timeout: dependencyInstallTimeoutMs }),
                 tunnelUrlPromise
             ]);
+            const installDurationMs = Date.now() - installStartTime;
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
                 
             if (installResult.exitCode === 0) {
+                this.logger.info('Dependency install completed', {
+                    instanceId,
+                    durationMs: installDurationMs,
+                    exitCode: installResult.exitCode,
+                });
                 // Try to start development server in background
                 try {
                     if (localEnvVars) {
@@ -1031,7 +1065,13 @@ export class SandboxSdkClient extends BaseSandboxService {
                     return undefined;
                 }
             } else {
-                this.logger.warn('Failed to install dependencies', installResult.stderr);
+                this.logger.warn('Failed to install dependencies', {
+                    instanceId,
+                    durationMs: installDurationMs,
+                    exitCode: installResult.exitCode,
+                    stderr: truncateLogSnippet(installResult.stderr),
+                    stdout: truncateLogSnippet(installResult.stdout),
+                });
             }
         } catch (error) {
             this.logger.warn('Failed to setup instance', error);
