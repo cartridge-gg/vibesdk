@@ -52,7 +52,7 @@ const MOCK_SCRIPTS = {
       level, msg, time: Date.now(), ...extra
     }));
     pinoLog(30, 'VITE v5.4.0  ready in 234 ms');
-    pinoLog(30, 'Local:   http://localhost:5173/');
+    pinoLog(30, 'Local:   http://localhost:4777/');
     pinoLog(30, 'Network: use --host to expose');
     // Keep alive
     setInterval(() => {
@@ -125,7 +125,7 @@ const MOCK_SCRIPTS = {
     const pinoLog = (level, msg, extra = {}) => console.log(JSON.stringify({
       level, msg, time: Date.now(), ...extra
     }));
-    pinoLog(60, 'Error: listen EADDRINUSE: address already in use :::5173');
+    pinoLog(60, 'Error: listen EADDRINUSE: address already in use :::4777');
     process.exit(1);
   `,
 

@@ -54,7 +54,7 @@ describe('VibeClient.build', () => {
 			return new Response('not found', { status: 404 });
 		});
 
-		const client = new VibeClient({ baseUrl: 'http://localhost:5173', apiKey: 'API_KEY', fetchFn });
+		const client = new VibeClient({ baseUrl: 'http://localhost:4777', apiKey: 'API_KEY', fetchFn });
 
 		let blueprint = '';
 		const session = await client.build('Hello', {

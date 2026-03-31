@@ -19,7 +19,7 @@ describe('HttpClient', () => {
 		});
 
 		const opts: VibeClientOptions = {
-			baseUrl: 'http://localhost:5173',
+			baseUrl: 'http://localhost:4777',
 			fetchFn,
 			retry: { initialDelayMs: 1, maxDelayMs: 10 },
 		};
@@ -38,7 +38,7 @@ describe('HttpClient', () => {
 		});
 
 		const opts: VibeClientOptions = {
-			baseUrl: 'http://localhost:5173',
+			baseUrl: 'http://localhost:4777',
 			fetchFn,
 			retry: { maxRetries: 2, initialDelayMs: 1, maxDelayMs: 10 },
 		};
@@ -56,7 +56,7 @@ describe('HttpClient', () => {
 		});
 
 		const opts: VibeClientOptions = {
-			baseUrl: 'http://localhost:5173',
+			baseUrl: 'http://localhost:4777',
 			fetchFn,
 			retry: { maxRetries: 3, initialDelayMs: 1 },
 		};
@@ -74,7 +74,7 @@ describe('HttpClient', () => {
 		});
 
 		const opts: VibeClientOptions = {
-			baseUrl: 'http://localhost:5173',
+			baseUrl: 'http://localhost:4777',
 			fetchFn,
 			retry: { enabled: false },
 		};
@@ -107,7 +107,7 @@ describe('HttpClient', () => {
 		});
 
 		const opts: VibeClientOptions = {
-			baseUrl: 'http://localhost:5173',
+			baseUrl: 'http://localhost:4777',
 			apiKey: 'API_KEY',
 			fetchFn,
 		};

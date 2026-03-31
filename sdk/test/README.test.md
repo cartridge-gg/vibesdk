@@ -18,7 +18,7 @@ The integration tests hit a real VibeSDK dev server and require an API key.
 - `VIBESDK_INTEGRATION_API_KEY="..." bun run test:integration`
 
 Optional:
-- `VIBESDK_INTEGRATION_BASE_URL="http://localhost:5173"`
+- `VIBESDK_INTEGRATION_BASE_URL="http://localhost:4777"`
 - `VIBESDK_INTEGRATION_RUN_PREVIEW=1` (runs preview deployment test; slower)
 
 Notes:

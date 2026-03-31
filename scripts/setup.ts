@@ -273,7 +273,7 @@ class SetupManager {
 
 		// Check if we already have a production domain configured
 		const existingProdDomain = this.existingConfig.CUSTOM_DOMAIN &&
-			this.existingConfig.CUSTOM_DOMAIN !== 'localhost:5173' ?
+			this.existingConfig.CUSTOM_DOMAIN !== 'localhost:4777' ?
 			this.existingConfig.CUSTOM_DOMAIN : undefined;
 
 		while (true) {
@@ -282,7 +282,7 @@ class SetupManager {
 				existingProdDomain || this.existingConfig.CUSTOM_DOMAIN
 			);
 
-			if (!customDomain || customDomain.trim() === '' || customDomain === 'localhost:5173') {
+			if (!customDomain || customDomain.trim() === '' || customDomain === 'localhost:4777') {
 				console.log('\n⚠️  No custom domain provided.');
 				console.log('   • Remote Cloudflare resources: Not available');
 				console.log('   • Production deployment: Not available');
@@ -294,7 +294,7 @@ class SetupManager {
 					continue;
 				}
 
-				customDomain = 'localhost:5173';
+				customDomain = 'localhost:4777';
 				useRemoteBindings = false;
 				setupRemote = false;
 				break;
@@ -320,7 +320,7 @@ class SetupManager {
 			}
 		}
 
-		const finalDomain = customDomain || 'localhost:5173';
+		const finalDomain = customDomain || 'localhost:4777';
 
 		// AI Gateway configuration
 		console.log('\n🤖 AI Gateway Configuration');
@@ -631,7 +631,7 @@ class SetupManager {
 		// Check production domain first (priority for zone detection)
 		const domainToCheck = this.config.setupRemote && this.config.prodDomain
 			? this.config.prodDomain
-			: (this.config.customDomain !== 'localhost:5173' ? this.config.customDomain : null);
+			: (this.config.customDomain !== 'localhost:4777' ? this.config.customDomain : null);
 
 		if (domainToCheck) {
 			try {
@@ -1505,7 +1505,7 @@ class SetupManager {
 		// Priority: Production domain > Custom local domain (if not localhost) > Don't set at all
 		const wranglerDomain = this.config.setupRemote && this.config.prodDomain
 			? this.config.prodDomain
-			: (this.config.customDomain !== 'localhost:5173' ? this.config.customDomain : null);
+			: (this.config.customDomain !== 'localhost:4777' ? this.config.customDomain : null);
 
 		if (wranglerDomain) {
 			// Update CUSTOM_DOMAIN in vars with production or custom domain
@@ -1564,7 +1564,7 @@ class SetupManager {
 			updatedContent = applyEdits(updatedContent, routesEdits);
 
 			// Don't set CUSTOM_DOMAIN for localhost (keep it unset or remove it)
-			const varsEdits = modify(updatedContent, ['vars', 'CUSTOM_DOMAIN'], 'localhost:5173', {
+			const varsEdits = modify(updatedContent, ['vars', 'CUSTOM_DOMAIN'], 'localhost:4777', {
 				formattingOptions: { insertSpaces: true, tabSize: 4 }
 			});
 			updatedContent = applyEdits(updatedContent, varsEdits);
@@ -1661,11 +1661,11 @@ class SetupManager {
 		}
 
 		// Check for potential issues
-		if (!this.config.customDomain || this.config.customDomain === 'localhost:5173') {
+		if (!this.config.customDomain || this.config.customDomain === 'localhost:4777') {
 			suggestions.push('Consider setting up a custom domain for production deployment');
 		}
 
-		if (resources.zones.length === 0 && this.config.customDomain && this.config.customDomain !== 'localhost:5173') {
+		if (resources.zones.length === 0 && this.config.customDomain && this.config.customDomain !== 'localhost:4777') {
 			issues.push('Custom domain zone not found - domain routing may not work');
 			suggestions.push('Ensure your domain is managed by Cloudflare and API token has zone permissions');
 		}
@@ -1683,7 +1683,7 @@ class SetupManager {
 		}
 
 		const localDevReady = issues.length === 0;
-		const deploymentReady = localDevReady && this.config.customDomain !== 'localhost:5173';
+		const deploymentReady = localDevReady && this.config.customDomain !== 'localhost:4777';
 
 		return {
 			localDevReady,
@@ -1734,13 +1734,13 @@ class SetupManager {
 		// Next Steps
 		console.log('🎯 Next Steps:');
 		console.log(`   1. Run \`${this.packageManager} run dev\` to start local development`);
-		console.log('   2. Visit your app at http://localhost:5173');
+		console.log('   2. Visit your app at http://localhost:4777');
 		console.log('   3. Database and templates are ready to use!');
 
 		if (this.config.setupRemote && this.config.prodDomain) {
 			console.log(`   4. For production deployment to ${this.config.prodDomain}, run \`npm run deploy\``);
 			console.log('   5. .prod.vars file is ready for production environment variables');
-		} else if (this.config.customDomain && this.config.customDomain !== 'localhost:5173') {
+		} else if (this.config.customDomain && this.config.customDomain !== 'localhost:4777') {
 			console.log('   4. For production deployment, run `npm run deploy`');
 		}
 

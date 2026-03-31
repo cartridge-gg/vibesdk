@@ -410,7 +410,7 @@ If you're deploying manually using `bun run deploy`, you **must** set these envi
 bun run dev
 ```
 
-Visit `http://localhost:5173` to access VibSDK locally.
+Visit `http://localhost:4777` to access VibSDK locally.
 
 **For Production Deployment (.prod.vars):**
 ```bash

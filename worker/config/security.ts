@@ -50,16 +50,16 @@ export function getAllowedOrigins(env: Env): string[] {
     // Development origins (only in development)
 	if (isDev(env)) {
 		origins.push('http://localhost:3000');
-		origins.push('http://localhost:5173');
+		origins.push('http://localhost:4777');
 		origins.push('http://localhost:8787');
 		origins.push('https://localhost:3000');
-        origins.push('https://localhost:5173');
+        origins.push('https://localhost:4777');
         origins.push('https://localhost:8787');
         origins.push('http://127.0.0.1:3000');
-        origins.push('http://127.0.0.1:5173');
+        origins.push('http://127.0.0.1:4777');
 		origins.push('http://127.0.0.1:8787');
 		origins.push('https://127.0.0.1:3000');
-		origins.push('https://127.0.0.1:5173');
+		origins.push('https://127.0.0.1:4777');
 		origins.push('https://127.0.0.1:8787');
 		origins.push('http://vibe.localtest.me');
 		origins.push('https://vibe.localtest.me');

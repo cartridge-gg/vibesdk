@@ -1363,7 +1363,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     public getBrowserPreviewURL(): string {
         const token = this.getOrCreateFileServingToken();
         const agentId = this.getAgentId();
-        const previewDomain = isDev(this.env) ? 'localhost:5173' : getPreviewDomain(this.env);
+        const previewDomain = isDev(this.env) ? 'localhost:4777' : getPreviewDomain(this.env);
 
         // Format: b-{agentid}-{token}.{previewDomain}
         return `${getProtocolForHost(previewDomain)}://b-${agentId}-${token}.${previewDomain}`;

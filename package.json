@@ -6,8 +6,8 @@
 	"scripts": {
 		"setup": "tsx scripts/setup.ts",
 		"prepare": "husky",
-		"dev": "DEV_MODE=true CLOUDFLARE_REMOTE_BINDINGS=false vite",
-		"dev:remote": "DEV_MODE=true CLOUDFLARE_REMOTE_BINDINGS=true vite",
+		"dev": "DEV_MODE=true CLOUDFLARE_REMOTE_BINDINGS=false vite --port 4777",
+		"dev:remote": "DEV_MODE=true CLOUDFLARE_REMOTE_BINDINGS=true vite --port 4777",
 		"build": "tsc -b --incremental && vite build",
 		"typecheck": "tsc -b --incremental --noEmit",
 		"lint": "eslint .",

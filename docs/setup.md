@@ -200,7 +200,7 @@ bun run db:migrate:local
 bun run dev
 ```
 
-Visit your app at `http://localhost:5173`
+Visit your app at `http://localhost:4777`
 
 **Important Note**: If you didn't specifiy any oauth credentials during setup, You would need to register an account for the first time. 
 
@@ -317,7 +317,7 @@ Alternatively, create `.prod.vars` manually based on `.dev.vars` but with:
 Once setup is complete:
 
 1. **Start developing** with `npm run dev`
-2. **Visit** `http://localhost:5173` to access VibSDK
+2. **Visit** `http://localhost:4777` to access VibSDK
 3. **Try generating** your first AI-powered application
 4. **Deploy to production** when ready with `npm run deploy`
 
