@@ -18,7 +18,7 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "cf-typegen": "wrangler types",
     "dojo:devnet": "katana --dev --http.port \${KATANA_PORT:-5050} --http.api dev,starknet --dev.no-fee --http.cors_origins '*'",
     "dojo:build": "sozo build",
-    "dojo:migrate": "sozo build && sozo migrate apply --rpc-url \${STARKNET_RPC_URL:-http://127.0.0.1:5050}",
+    "dojo:migrate": "sozo build && sozo migrate --rpc-url \${STARKNET_RPC_URL:-http://127.0.0.1:5050}",
     "dojo:indexer": "bash ./scripts/torii.sh",
     "dojo:check": "bash ./scripts/dojo-check.sh"
   },
@@ -105,6 +105,7 @@ export default defineConfig({
   },
   server: {
     allowedHosts: true,
+    cors: true,
     strictPort: true,
     proxy: {
       '/__dojo/katana': {
@@ -242,11 +243,19 @@ createRoot(document.getElementById('root')!).render(
 
 const HELLO_WORLD_VITE_STARKNET = `import type { ReactNode } from 'react';
 import { ControllerConnector } from '@cartridge/connector';
+import { getContractByName } from '@dojoengine/core';
 import type { Chain } from '@starknet-react/chains';
 import {
   StarknetConfig,
-  cartridgeProvider,
+  jsonRpcProvider,
 } from '@starknet-react/core';
+import manifest from '../manifest_dev.json';
+
+const DOJO_NAMESPACE = 'vibes_clicker';
+
+interface ManifestContract {
+  address: string;
+}
 
 function getDojoServiceUrl(path: string): string {
   if (typeof window === 'undefined') {
@@ -257,17 +266,54 @@ function getDojoServiceUrl(path: string): string {
 }
 
 const KATANA_RPC_URL = getDojoServiceUrl('/__dojo/katana');
-const KATANA_DEV_CHAIN_ID = '0x534e5f5345504f4c4941';
+const KATANA_CHAIN_ID = '0x4b4154414e41';
+const KATANA_STRK_CONTRACT_ADDRESS =
+  '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
+
+function getActionsContractAddress(): string {
+  const contract = getContractByName(
+    manifest,
+    DOJO_NAMESPACE,
+    'actions',
+  ) as ManifestContract | undefined;
+
+  return contract?.address ?? '0x0';
+}
+
+const controllerPolicies = {
+  contracts: {
+    [getActionsContractAddress()]: {
+      name: 'Vibes Clicker Actions',
+      description: 'Katana session policies for the built-in Dojo starter.',
+      methods: [
+        {
+          name: 'Spawn Player',
+          entrypoint: 'spawn',
+          description: 'Initialize the player entity onchain.',
+        },
+        {
+          name: 'Mine Clicks',
+          entrypoint: 'click',
+          description: 'Increment the onchain click counter.',
+        },
+        {
+          name: 'Buy Upgrade',
+          entrypoint: 'buy_upgrade',
+          description: 'Increase the click multiplier onchain.',
+        },
+      ],
+    },
+  },
+} as const;
 
 const katana = {
-  id: BigInt(KATANA_DEV_CHAIN_ID),
+  id: BigInt(KATANA_CHAIN_ID),
   network: 'katana',
   name: 'Katana',
   nativeCurrency: {
-    address:
-      '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
-    name: 'Ether',
-    symbol: 'ETH',
+    address: KATANA_STRK_CONTRACT_ADDRESS,
+    name: 'Stark',
+    symbol: 'STRK',
     decimals: 18,
   },
   testnet: true,
@@ -291,9 +337,11 @@ const katana = {
 
 export const controllerConnector = new ControllerConnector({
   lazyload: true,
+  policies: controllerPolicies,
+  propagateSessionErrors: true,
   signupOptions: ['webauthn'],
   chains: [{ rpcUrl: KATANA_RPC_URL }],
-  defaultChainId: KATANA_DEV_CHAIN_ID,
+  defaultChainId: KATANA_CHAIN_ID,
 });
 
 export function StarknetProvider({ children }: { children: ReactNode }) {
@@ -302,7 +350,7 @@ export function StarknetProvider({ children }: { children: ReactNode }) {
       autoConnect
       chains={[katana]}
       defaultChainId={katana.id}
-      provider={cartridgeProvider()}
+      provider={jsonRpcProvider({ rpc: () => ({ nodeUrl: KATANA_RPC_URL }) })}
       connectors={[controllerConnector]}
     >
       {children}
@@ -380,7 +428,6 @@ const HELLO_WORLD_VITE_DOJO = `import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import {
   DojoProvider,
-  KATANA_ETH_CONTRACT_ADDRESS,
   createDojoConfig,
   getContractByName,
 } from '@dojoengine/core';
@@ -390,6 +437,8 @@ import { addAddressPadding, type AccountInterface, type InvokeFunctionResponse }
 import manifest from '../../manifest_dev.json';
 
 const DOJO_NAMESPACE = 'vibes_clicker';
+const KATANA_STRK_CONTRACT_ADDRESS =
+  '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
 
 const DOJO_DOMAIN = {
   name: 'Vibes Clicker Starter',
@@ -433,7 +482,7 @@ const dojoConfig = createDojoConfig({
   manifest,
   rpcUrl: KATANA_RPC_URL,
   toriiUrl: TORII_URL,
-  feeTokenAddress: KATANA_ETH_CONTRACT_ADDRESS,
+  feeTokenAddress: KATANA_STRK_CONTRACT_ADDRESS,
 });
 
 let sdkPromise: Promise<SDK<DojoSchema>> | null = null;
@@ -1043,7 +1092,7 @@ KATANA_PID=$!
 
 wait_for_rpc
 sozo build
-sozo migrate apply --rpc-url "$KATANA_RPC_URL"
+sozo migrate --rpc-url "$KATANA_RPC_URL"
 
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then
@@ -1134,7 +1183,7 @@ KATANA_PID=$!
 
 wait_for_rpc
 sozo build
-sozo migrate apply --rpc-url "$KATANA_RPC_URL"
+sozo migrate --rpc-url "$KATANA_RPC_URL"
 
 WORLD_ADDRESS="$(bun -e "import manifest from './manifest_dev.json' assert { type: 'json' }; console.log(manifest.world?.address ?? '')")"
 if [[ -z "$WORLD_ADDRESS" || "$WORLD_ADDRESS" == "0x0" ]]; then

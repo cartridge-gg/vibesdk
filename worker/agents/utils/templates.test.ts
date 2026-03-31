@@ -52,6 +52,7 @@ describe('templates', () => {
 		expect(template.allFiles['vite.config.ts']).toContain('/__dojo/torii');
 		expect(template.allFiles['vite.config.ts']).toContain('katanaPort');
 		expect(template.allFiles['vite.config.ts']).toContain('toriiPort');
+		expect(template.allFiles['vite.config.ts']).toContain('cors: true');
 		expect(template.allFiles['vite.config.ts']).not.toContain(
 			'vite-plugin-node-polyfills',
 		);
@@ -68,10 +69,28 @@ describe('templates', () => {
 			'ControllerConnector',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'jsonRpcProvider',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
 			"getDojoServiceUrl('/__dojo/katana')",
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
+			"const KATANA_CHAIN_ID = '0x4b4154414e41'",
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'const controllerPolicies = {',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			"entrypoint: 'buy_upgrade'",
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
 			"chains: [{ rpcUrl: KATANA_RPC_URL }]",
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'defaultChainId: KATANA_CHAIN_ID',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'policies: controllerPolicies',
 		);
 		expect(template.allFiles['src/starknet.tsx']).not.toContain('sepolia');
 		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
@@ -82,6 +101,9 @@ describe('templates', () => {
 		);
 		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
 			"getDojoServiceUrl('/__dojo/torii')",
+		);
+		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
+			'feeTokenAddress: KATANA_STRK_CONTRACT_ADDRESS',
 		);
 		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
 			'A working onchain clicker baseline',
@@ -97,7 +119,7 @@ describe('templates', () => {
 			'fn buy_upgrade',
 		);
 		expect(template.allFiles['package.json']).toContain(
-			'"dojo:migrate": "sozo build && sozo migrate apply --rpc-url ${STARKNET_RPC_URL:-http://127.0.0.1:5050}"',
+			'"dojo:migrate": "sozo build && sozo migrate --rpc-url ${STARKNET_RPC_URL:-http://127.0.0.1:5050}"',
 		);
 		expect(template.allFiles['scripts/dev.sh']).toContain(
 			'KATANA_PORT="${KATANA_PORT:-$((PORT + 1000))}"',
@@ -106,14 +128,14 @@ describe('templates', () => {
 			'TORII_PORT="${TORII_PORT:-$((PORT + 2000))}"',
 		);
 		expect(template.allFiles['scripts/dev.sh']).toContain(
-			'sozo migrate apply --rpc-url "$KATANA_RPC_URL"',
+			'sozo migrate --rpc-url "$KATANA_RPC_URL"',
 		);
 		expect(template.allFiles['scripts/dev.sh']).toContain(
 			'--http.port "$KATANA_PORT"',
 		);
 		expect(template.allFiles['scripts/dev.sh']).toContain('torii --world');
 		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
-			'sozo migrate apply --rpc-url "$KATANA_RPC_URL"',
+			'sozo migrate --rpc-url "$KATANA_RPC_URL"',
 		);
 		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
 			'wait_for_http "http://127.0.0.1:$TORII_PORT"',

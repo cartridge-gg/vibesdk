@@ -18,6 +18,13 @@ export function buildUserWorkerUrl(env: Env, deploymentId: string): string {
     return `${protocol}://${deploymentId}.${domain}`;
 }
 
+export function getPreviewUrl(
+	previewURL?: string,
+	tunnelURL?: string,
+): string {
+	return tunnelURL || previewURL || '';
+}
+
 /**
  * Migrate a stored preview URL to the current domain.
  * Extracts subdomain from old URL and rebuilds with current getPreviewDomain().

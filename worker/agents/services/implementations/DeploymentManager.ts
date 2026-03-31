@@ -117,7 +117,9 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         this.setState({
             ...state,
             sessionId: newSessionId,
-            sandboxInstanceId: undefined  // Clear instance on session reset
+            sandboxInstanceId: undefined,
+            previewURL: undefined,
+            tunnelURL: undefined,
         });
     }
 
@@ -458,7 +460,9 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 // Clear instance ID from state
                 this.setState({
                     ...this.getState(),
-                    sandboxInstanceId: undefined
+                    sandboxInstanceId: undefined,
+                    previewURL: undefined,
+                    tunnelURL: undefined,
                 });
 
                 callbacks?.onError?.({
@@ -553,6 +557,12 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             const status = await client.getInstanceStatus(sandboxInstanceId);
             if (status.success && status.isHealthy) {
                 logger.info(`DEPLOYMENT CHECK PASSED: Instance ${sandboxInstanceId} is running`);
+                this.setState({
+                    ...this.getState(),
+                    sandboxInstanceId,
+                    previewURL: status.previewURL,
+                    tunnelURL: status.tunnelURL,
+                });
                 return {
                     sandboxInstanceId,
                     previewURL: status.previewURL,
@@ -572,6 +582,8 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         this.setState({
             ...this.getState(),
             sandboxInstanceId: results.runId,
+            previewURL: results.previewURL,
+            tunnelURL: results.tunnelURL,
         });
 
         return {

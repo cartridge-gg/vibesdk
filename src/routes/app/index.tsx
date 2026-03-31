@@ -380,7 +380,7 @@ export default function AppView() {
 	};
 
 	const getAppUrl = () => {
-		return app?.cloudflareUrl || app?.previewUrl || '';
+		return app?.previewUrl || app?.cloudflareUrl || '';
 	};
 
 	const handlePreviewDeploy = async () => {

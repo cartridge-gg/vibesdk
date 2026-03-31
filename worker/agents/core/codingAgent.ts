@@ -31,6 +31,7 @@ import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
+import { getPreviewUrl } from '../../utils/urls';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -76,6 +77,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         metadata: {} as InferenceMetadata,
         shouldBeGenerating: false,
         sandboxInstanceId: undefined,
+        previewURL: undefined,
+        tunnelURL: undefined,
         commandsHistory: [],
         lastPackageJson: '',
         pendingUserInputs: [],
@@ -213,9 +216,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         let previewUrl = '';
         try {
-            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
-                previewUrl = this.behavior.getBrowserPreviewURL();
-            }
+            previewUrl = this.getPreviewUrlCache();
         } catch (error) {
             this.logger().error('Error getting preview URL:', error);
         }
@@ -321,7 +322,16 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     getPreviewUrlCache(): string {
-        return ''; // Unimplemented
+        try {
+            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
+                return this.behavior.getBrowserPreviewURL();
+            }
+        } catch {
+            // Fall through to cached sandbox preview URLs when template details
+            // are unavailable during a lightweight read.
+        }
+
+        return getPreviewUrl(this.state.previewURL, this.state.tunnelURL);
     }
 
     deployToSandbox(
