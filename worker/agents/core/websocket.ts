@@ -62,6 +62,41 @@ export function handleWebSocketMessage(
                     logger.error('Error during screenshot capture:', error);
                 });
                 break;
+            case WebSocketMessageRequests.PREVIEW_FAILED: {
+                const reason =
+                    typeof parsedMessage.reason === 'string' && parsedMessage.reason.length > 0
+                        ? parsedMessage.reason
+                        : 'Preview health check failed';
+                const url =
+                    typeof parsedMessage.url === 'string' ? parsedMessage.url : '';
+                const details = Array.isArray(parsedMessage.details)
+                    ? parsedMessage.details.filter(
+                        (detail: unknown): detail is string =>
+                            typeof detail === 'string' && detail.length > 0,
+                    )
+                    : [];
+
+                logger.warn('Preview reported as unhealthy by frontend', {
+                    url,
+                    reason,
+                    details,
+                });
+
+                broadcastToConnections(agent, WebSocketMessageResponses.RUNTIME_ERROR_FOUND, {
+                    errors: [{
+                        timestamp: new Date().toISOString(),
+                        level: 50,
+                        message: `Preview health check failed: ${reason}`,
+                        rawOutput: JSON.stringify({
+                            source: 'preview_health',
+                            url,
+                            details,
+                        }),
+                    }],
+                    count: 1,
+                });
+                break;
+            }
             case WebSocketMessageRequests.STOP_GENERATION: {
                 logger.info('User requested to stop generation');
                 

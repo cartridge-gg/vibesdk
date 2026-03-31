@@ -229,6 +229,8 @@ import './index.css';
 import { DojoProviderRoot } from './lib/dojo';
 import { StarknetProvider } from './starknet';
 
+// This file defines the only supported provider topology for the starter.
+// Do not add a second DojoProvider or StarknetConfig elsewhere in the app.
 createRoot(document.getElementById('root')!).render(
   <StarknetProvider>
     <DojoProviderRoot>
@@ -238,7 +240,7 @@ createRoot(document.getElementById('root')!).render(
 );
 `;
 
-const HELLO_WORLD_VITE_STARKNET = `import type { ReactNode } from 'react';
+const HELLO_WORLD_VITE_STARKNET = `import { useEffect, type ReactNode } from 'react';
 import { ControllerConnector } from '@cartridge/connector';
 import { getContractByName } from '@dojoengine/core';
 import type { Chain } from '@starknet-react/chains';
@@ -246,9 +248,13 @@ import {
   StarknetConfig,
   jsonRpcProvider,
   paymasterRpcProvider,
+  useAccount,
+  useDisconnect,
 } from '@starknet-react/core';
 import manifest from '../manifest_dev.json';
 
+// This file is audited starter infrastructure.
+// Keep a single StarknetConfig rooted here and keep Katana RPC/paymaster wiring in sync.
 const DOJO_NAMESPACE = 'vibes_clicker';
 
 interface ManifestContract {
@@ -267,6 +273,23 @@ const KATANA_RPC_URL = getDojoServiceUrl('/__dojo/katana');
 const KATANA_CHAIN_ID = '0x4b4154414e41';
 const KATANA_STRK_CONTRACT_ADDRESS =
   '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
+
+function normalizeRpcUrl(url: string): string {
+  try {
+    return new URL(url).toString();
+  } catch {
+    return url;
+  }
+}
+
+function getAccountRpcUrl(account: unknown): string | null {
+  if (!account || typeof account !== 'object') {
+    return null;
+  }
+
+  const channel = (account as { channel?: { nodeUrl?: unknown } }).channel;
+  return typeof channel?.nodeUrl === 'string' ? channel.nodeUrl : null;
+}
 
 function getActionsContractAddress(): string {
   const contract = getContractByName(
@@ -342,6 +365,62 @@ export const controllerConnector = new ControllerConnector({
   defaultChainId: KATANA_CHAIN_ID,
 });
 
+const originalControllerProbe =
+  controllerConnector.controller.probe.bind(controllerConnector.controller);
+
+controllerConnector.controller.probe = async () => {
+  const account = await originalControllerProbe();
+  const accountRpcUrl = getAccountRpcUrl(account);
+
+  if (
+    accountRpcUrl &&
+    normalizeRpcUrl(accountRpcUrl) !== normalizeRpcUrl(KATANA_RPC_URL)
+  ) {
+    await controllerConnector.disconnect().catch((error: unknown) => {
+      console.error(
+        'Failed to clear stale Cartridge Controller probe session:',
+        error,
+      );
+    });
+    return undefined;
+  }
+
+  return account;
+};
+
+function ControllerSessionBoundary({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { account, isConnected } = useAccount();
+  const { disconnectAsync } = useDisconnect();
+  const accountRpcUrl = getAccountRpcUrl(account);
+  const hasStaleControllerSession =
+    isConnected &&
+    !!accountRpcUrl &&
+    normalizeRpcUrl(accountRpcUrl) !== normalizeRpcUrl(KATANA_RPC_URL);
+
+  useEffect(() => {
+    if (!hasStaleControllerSession) {
+      return;
+    }
+
+    void disconnectAsync().catch((error: unknown) => {
+      console.error(
+        'Failed to clear stale Cartridge Controller session:',
+        error,
+      );
+    });
+  }, [disconnectAsync, hasStaleControllerSession]);
+
+  if (hasStaleControllerSession) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 export function StarknetProvider({ children }: { children: ReactNode }) {
   return (
     <StarknetConfig
@@ -354,7 +433,7 @@ export function StarknetProvider({ children }: { children: ReactNode }) {
       })}
       connectors={[controllerConnector]}
     >
-      {children}
+      <ControllerSessionBoundary>{children}</ControllerSessionBoundary>
     </StarknetConfig>
   );
 }
@@ -437,6 +516,8 @@ import { KeysClause, ToriiQueryBuilder, init, type SDK, type SchemaType } from '
 import { addAddressPadding, type AccountInterface, type InvokeFunctionResponse } from 'starknet';
 import manifest from '../../manifest_dev.json';
 
+// This file owns the single Dojo SDK provider for the starter.
+// Do not mount another DojoProvider/DojoSdkProvider elsewhere in the React tree.
 const DOJO_NAMESPACE = 'vibes_clicker';
 const KATANA_STRK_CONTRACT_ADDRESS =
   '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
@@ -1571,7 +1652,10 @@ Use this as the default starting point for new app and game projects when no ric
             'worker/index.ts',
             'wrangler.jsonc',
         ],
-        dontTouchFiles: [],
+        dontTouchFiles: [
+            'src/main.tsx',
+            'src/starknet.tsx',
+        ],
         redactedFiles: [],
         disabled: false,
     };

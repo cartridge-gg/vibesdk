@@ -32,7 +32,7 @@ import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
-import { ImageType, uploadImage, detectBlankScreenshot } from 'worker/utils/images';
+import { ImageType, uploadImage, analyzeRenderedPreview } from 'worker/utils/images';
 import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
 import { DeepDebugResult } from '../types';
 import { updatePackageJson } from '../../utils/packageSyncer';
@@ -57,6 +57,12 @@ const SCREENSHOT_CONFIG = {
     RETRY_DELAY_BASE: 2000,      // 2s base delay between retries
     MIN_FILE_SIZE: 10000,        // 10KB minimum for valid screenshot
     MIN_ENTROPY: 2.0,            // Minimum entropy threshold
+};
+
+const PREVIEW_VALIDATION_CONFIG = {
+    MAX_RETRIES: 2,
+    RETRY_DELAY_BASE: 2000,
+    VIEWPORT: { width: 1280, height: 720 },
 };
 
 export interface BaseCodingOperations {
@@ -1410,9 +1416,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 onStarted: (data) => {
                     this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, data);
                 },
-                onCompleted: (data) => {
-                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, data);
-                },
                 onError: (data) => {
                     this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, data);
                 },
@@ -1422,6 +1425,28 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 }
             }
         );
+
+        if (result?.previewURL) {
+            try {
+                await this.validatePreviewHealth(result.previewURL);
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
+                    error: errorMessage,
+                });
+                throw error;
+            }
+        }
+
+        if (result?.previewURL) {
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, {
+                message: 'Deployment completed',
+                instanceId: result.runId ?? this.state.sandboxInstanceId ?? '',
+                previewURL: result.previewURL,
+                tunnelURL: result.tunnelURL ?? '',
+            });
+        }
 
         return result;
     }
@@ -2030,33 +2055,39 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     });
                 }
 
-                // Capture screenshot
-                const base64Screenshot = await this.executeScreenshotCapture(url, viewport);
-
-                // Detect if screenshot is blank
-                const blankDetection = detectBlankScreenshot(
+                // Capture screenshot and analyze the rendered page, not just HTTP reachability.
+                const { screenshot: base64Screenshot, content } = await this.executeScreenshotCapture(url, viewport);
+                const renderAnalysis = analyzeRenderedPreview(
                     base64Screenshot,
+                    content,
                     SCREENSHOT_CONFIG.MIN_FILE_SIZE,
                     SCREENSHOT_CONFIG.MIN_ENTROPY
                 );
 
-                if (blankDetection.isBlank) {
-                    lastBlankReason = blankDetection.reason;
-                    this.logger.warn(`Blank screenshot detected on attempt ${attempt + 1}`, {
-                        reason: blankDetection.reason,
-                        url
+                if (renderAnalysis.hasIssues) {
+                    lastBlankReason = renderAnalysis.issues.join(' ');
+                    this.logger.warn(`Unhealthy preview detected on screenshot attempt ${attempt + 1}`, {
+                        issues: renderAnalysis.issues,
+                        url,
                     });
 
-                    // If we have retries left, wait and try again
-                    if (attempt < maxRetries) {
+                    if (attempt < maxRetries && renderAnalysis.shouldRetry) {
                         const delay = SCREENSHOT_CONFIG.RETRY_DELAY_BASE * Math.pow(2, attempt);
                         this.logger.info(`Waiting ${delay}ms before retry...`);
                         await new Promise(resolve => setTimeout(resolve, delay));
                         continue;
                     }
 
-                    // On final attempt, use the screenshot anyway
-                    this.logger.warn('All retry attempts resulted in blank screenshot, using last capture');
+                    this.broadcast(WebSocketMessageResponses.SCREENSHOT_ANALYSIS_RESULT, {
+                        message: `Preview rendered, but health checks found issues for ${url}`,
+                        url,
+                        analysis: {
+                            hasIssues: renderAnalysis.hasIssues,
+                            issues: renderAnalysis.issues,
+                            suggestions: renderAnalysis.suggestions,
+                            uiCompliance: renderAnalysis.uiCompliance,
+                        },
+                    });
                 }
 
                 // Process and store the screenshot
@@ -2084,13 +2115,96 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         throw new Error(`Screenshot capture failed: ${errorMessage}`);
     }
 
+    private async validatePreviewHealth(url: string): Promise<void> {
+        let lastIssues: string[] = [];
+
+        for (let attempt = 0; attempt <= PREVIEW_VALIDATION_CONFIG.MAX_RETRIES; attempt++) {
+            try {
+                const { screenshot, content } = await this.executeScreenshotCapture(
+                    url,
+                    PREVIEW_VALIDATION_CONFIG.VIEWPORT,
+                );
+                const renderAnalysis = analyzeRenderedPreview(
+                    screenshot,
+                    content,
+                    SCREENSHOT_CONFIG.MIN_FILE_SIZE,
+                    SCREENSHOT_CONFIG.MIN_ENTROPY,
+                );
+
+                if (!renderAnalysis.hasIssues) {
+                    return;
+                }
+
+                lastIssues = renderAnalysis.issues;
+                this.logger.warn(`Preview health validation found issues on attempt ${attempt + 1}`, {
+                    url,
+                    issues: renderAnalysis.issues,
+                });
+
+                if (attempt < PREVIEW_VALIDATION_CONFIG.MAX_RETRIES) {
+                    const delay =
+                        PREVIEW_VALIDATION_CONFIG.RETRY_DELAY_BASE * Math.pow(2, attempt);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                    continue;
+                }
+
+                this.broadcast(WebSocketMessageResponses.SCREENSHOT_ANALYSIS_RESULT, {
+                    message: `Preview rendered, but health checks found issues for ${url}`,
+                    url,
+                    analysis: {
+                        hasIssues: renderAnalysis.hasIssues,
+                        issues: renderAnalysis.issues,
+                        suggestions: renderAnalysis.suggestions,
+                        uiCompliance: renderAnalysis.uiCompliance,
+                    },
+                });
+                this.broadcast(WebSocketMessageResponses.RUNTIME_ERROR_FOUND, {
+                    errors: [{
+                        timestamp: new Date().toISOString(),
+                        level: 50,
+                        message: `Preview health check failed: ${renderAnalysis.issues[0] ?? 'Preview rendered as blank or broken'}`,
+                        rawOutput: JSON.stringify({
+                            source: 'post_deploy_preview_validation',
+                            url,
+                            issues: renderAnalysis.issues,
+                        }),
+                    }],
+                    count: 1,
+                });
+                throw new Error(
+                    `Preview health check failed: ${renderAnalysis.issues.join(' ')}`,
+                );
+            } catch (error) {
+                if (error instanceof Error && error.message.startsWith('Preview health check failed:')) {
+                    throw error;
+                }
+
+                this.logger.warn('Preview health validation could not complete', {
+                    url,
+                    attempt: attempt + 1,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+
+                if (attempt < PREVIEW_VALIDATION_CONFIG.MAX_RETRIES) {
+                    const delay =
+                        PREVIEW_VALIDATION_CONFIG.RETRY_DELAY_BASE * Math.pow(2, attempt);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        if (lastIssues.length > 0) {
+            throw new Error(`Preview health check failed: ${lastIssues.join(' ')}`);
+        }
+    }
+
     /**
      * Execute a single screenshot capture attempt using Cloudflare Browser Rendering API.
      */
     private async executeScreenshotCapture(
         url: string,
         viewport: { width: number; height: number }
-    ): Promise<string> {
+    ): Promise<{ screenshot: string; content?: string }> {
         const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${this.env.CLOUDFLARE_ACCOUNT_ID}/browser-rendering/snapshot`;
 
         const response = await fetch(apiUrl, {
@@ -2131,7 +2245,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             throw new Error('Browser Rendering API succeeded but no screenshot returned');
         }
 
-        return result.result.screenshot;
+        return {
+            screenshot: result.result.screenshot,
+            content: result.result.content,
+        };
     }
 
     /**

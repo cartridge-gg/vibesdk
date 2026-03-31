@@ -636,6 +636,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
+            case 'screenshot_analysis_result': {
+                if (message.analysis.hasIssues) {
+                    onDebugMessage?.(
+                        'warning',
+                        'Preview Health Check Failed',
+                        message.analysis.issues.join('\n'),
+                        'Preview Health',
+                        message.type,
+                        message,
+                    );
+                }
+                break;
+            }
+
             case 'code_reviewing': {
                 const lintIssues = message.staticAnalysis?.lint?.issues?.length || 0;
                 const typecheckIssues = message.staticAnalysis?.typecheck?.issues?.length || 0;

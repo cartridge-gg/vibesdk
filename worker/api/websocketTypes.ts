@@ -283,6 +283,7 @@ type ScreenshotCaptureErrorMessage = {
 type ScreenshotAnalysisResultMessage = {
 	type: 'screenshot_analysis_result';
 	message: string;
+	url: string;
 	analysis: {
 		hasIssues: boolean;
 		issues: string[];

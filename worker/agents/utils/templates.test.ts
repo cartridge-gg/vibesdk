@@ -65,6 +65,9 @@ describe('templates', () => {
 		expect(template.allFiles['src/main.tsx']).toContain(
 			'<DojoProviderRoot>',
 		);
+		expect(template.allFiles['src/main.tsx']).toContain(
+			'only supported provider topology',
+		);
 		expect(template.allFiles['src/main.tsx']).not.toContain('StrictMode');
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'StarknetConfig',
@@ -73,10 +76,31 @@ describe('templates', () => {
 			'ControllerConnector',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'audited starter infrastructure',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'jsonRpcProvider',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'paymasterRpcProvider',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'ControllerSessionBoundary',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'const originalControllerProbe =',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'controllerConnector.controller.probe = async () => {',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'normalizeRpcUrl(accountRpcUrl) !== normalizeRpcUrl(KATANA_RPC_URL)',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'controllerConnector.disconnect().catch',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'disconnectAsync().catch',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			"getDojoServiceUrl('/__dojo/katana')",
@@ -105,6 +129,9 @@ describe('templates', () => {
 		expect(template.allFiles['src/starknet.tsx']).not.toContain('sepolia');
 		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
 			'DojoSdkProvider',
+		);
+		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
+			'single Dojo SDK provider',
 		);
 		expect(template.allFiles['src/lib/dojo.tsx']).toContain(
 			'createDojoConfig',
@@ -171,6 +198,10 @@ describe('templates', () => {
 		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
 			'wait_for_http "http://127.0.0.1:$TORII_PORT"',
 		);
+		expect(template.dontTouchFiles).toEqual([
+			'src/main.tsx',
+			'src/starknet.tsx',
+		]);
 	});
 
 	it('includes controller and dojo-ready starter dependencies', () => {

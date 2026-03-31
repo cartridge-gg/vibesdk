@@ -68,6 +68,7 @@ const RelevantProjectUpdateWebsoketMessages = [
     WebSocketMessageResponses.FILE_REGENERATED,
     WebSocketMessageResponses.DEPLOYMENT_COMPLETED,
     WebSocketMessageResponses.COMMAND_EXECUTING,
+    WebSocketMessageResponses.RUNTIME_ERROR_FOUND,
 ] as const;
 export type ProjectUpdateType = typeof RelevantProjectUpdateWebsoketMessages[number];
 

@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getPreviewUrl(previewURL?: string, tunnelURL?: string): string {
-	return tunnelURL || previewURL || '';
+	return previewURL || tunnelURL || '';
 }
 
 export function capitalizeFirstLetter(str: string) {

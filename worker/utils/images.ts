@@ -1,18 +1,39 @@
-
 // ===============================
 // Screenshot storage helpers
 // ===============================
 
-import { ImageAttachment, ProcessedImageAttachment, SupportedImageMimeType } from "worker/types/image-attachment";
-import { getProtocolForHost } from "./urls";
+import {
+	ImageAttachment,
+	ProcessedImageAttachment,
+	SupportedImageMimeType,
+} from 'worker/types/image-attachment';
+import { getProtocolForHost } from './urls';
 
 // ===============================
 // Blank screenshot detection
 // ===============================
 
 interface BlankDetectionResult {
-    isBlank: boolean;
-    reason: string;
+	isBlank: boolean;
+	reason: string;
+}
+
+export interface PreviewRenderAnalysis {
+	hasIssues: boolean;
+	issues: string[];
+	suggestions: string[];
+	uiCompliance: {
+		matchesBlueprint: boolean;
+		deviations: string[];
+	};
+	blankScreenshotDetected: boolean;
+	blankScreenshotReason?: string;
+	emptyRootSelector?: string;
+	visibleTextLength: number;
+	interactiveElementCount: number;
+	mediaElementCount: number;
+	meaningfulElementCount: number;
+	shouldRetry: boolean;
 }
 
 /**
@@ -21,19 +42,19 @@ interface BlankDetectionResult {
  * Uniform/blank images have very low entropy (< 2.0).
  */
 export function calculateEntropy(data: Uint8Array): number {
-    const freq = new Array(256).fill(0);
-    for (const byte of data) {
-        freq[byte]++;
-    }
+	const freq = new Array(256).fill(0);
+	for (const byte of data) {
+		freq[byte]++;
+	}
 
-    let entropy = 0;
-    for (const count of freq) {
-        if (count > 0) {
-            const p = count / data.length;
-            entropy -= p * Math.log2(p);
-        }
-    }
-    return entropy;
+	let entropy = 0;
+	for (const count of freq) {
+		if (count > 0) {
+			const p = count / data.length;
+			entropy -= p * Math.log2(p);
+		}
+	}
+	return entropy;
 }
 
 /**
@@ -45,49 +66,170 @@ export function calculateEntropy(data: Uint8Array): number {
  * @param minEntropy - Minimum entropy threshold (default: 2.0)
  */
 export function detectBlankScreenshot(
-    base64Data: string,
-    minFileSize: number = 10000,
-    minEntropy: number = 2.0
+	base64Data: string,
+	minFileSize: number = 10000,
+	minEntropy: number = 2.0
 ): BlankDetectionResult {
-    const bytes = base64ToUint8Array(base64Data);
+	const bytes = base64ToUint8Array(base64Data);
 
-    // Check 1: File size
-    // A blank 1280x720 PNG typically compresses to < 5KB
-    // Real screenshots with content are usually > 50KB
-    if (bytes.length < minFileSize) {
-        return {
-            isBlank: true,
-            reason: `File size too small: ${bytes.length} bytes (minimum: ${minFileSize})`
-        };
-    }
+	// Check 1: File size
+	// A blank 1280x720 PNG typically compresses to < 5KB
+	// Real screenshots with content are usually > 50KB
+	if (bytes.length < minFileSize) {
+		return {
+			isBlank: true,
+			reason: `File size too small: ${bytes.length} bytes (minimum: ${minFileSize})`,
+		};
+	}
 
-    // Check 2: Entropy of the last portion of the file (compressed pixel data)
-    // Sample the last 1000 bytes which contains compressed image data
-    const sampleSize = Math.min(1000, bytes.length);
-    const sample = bytes.slice(-sampleSize);
-    const entropy = calculateEntropy(sample);
+	// Check 2: Entropy of the last portion of the file (compressed pixel data)
+	// Sample the last 1000 bytes which contains compressed image data
+	const sampleSize = Math.min(1000, bytes.length);
+	const sample = bytes.slice(-sampleSize);
+	const entropy = calculateEntropy(sample);
 
-    if (entropy < minEntropy) {
-        return {
-            isBlank: true,
-            reason: `Low entropy: ${entropy.toFixed(2)} (minimum: ${minEntropy})`
-        };
-    }
+	if (entropy < minEntropy) {
+		return {
+			isBlank: true,
+			reason: `Low entropy: ${entropy.toFixed(2)} (minimum: ${minEntropy})`,
+		};
+	}
 
-    return {
-        isBlank: false,
-        reason: 'Passed all checks'
-    };
+	return {
+		isBlank: false,
+		reason: 'Passed all checks',
+	};
 }
 
-    
+function countMatches(input: string, pattern: RegExp): number {
+	return [...input.matchAll(pattern)].length;
+}
+
+function stripToVisibleText(html: string): string {
+	return html
+		.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+		.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+		.replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
+		.replace(/<!--[\s\S]*?-->/g, ' ')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&nbsp;/gi, ' ')
+		.replace(/&amp;/gi, '&')
+		.replace(/&lt;/gi, '<')
+		.replace(/&gt;/gi, '>')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function getRenderedBodyHtml(htmlContent?: string): string {
+	if (!htmlContent) {
+		return '';
+	}
+
+	const bodyMatch = htmlContent.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+	return bodyMatch?.[1] ?? htmlContent;
+}
+
+function findEmptyRootSelector(bodyHtml: string): string | undefined {
+	const emptyRootPatterns: Array<{ selector: string; pattern: RegExp }> = [
+		{ selector: '#root', pattern: /<div\b[^>]*id=["']root["'][^>]*>\s*<\/div>/i },
+		{ selector: '#__next', pattern: /<div\b[^>]*id=["']__next["'][^>]*>\s*<\/div>/i },
+		{ selector: '#app', pattern: /<div\b[^>]*id=["']app["'][^>]*>\s*<\/div>/i },
+		{
+			selector: '#react-root',
+			pattern: /<div\b[^>]*id=["']react-root["'][^>]*>\s*<\/div>/i,
+		},
+	];
+
+	return emptyRootPatterns.find(({ pattern }) => pattern.test(bodyHtml))?.selector;
+}
+
+export function analyzeRenderedPreview(
+	base64Data: string,
+	htmlContent?: string,
+	minFileSize: number = 10000,
+	minEntropy: number = 2.0
+): PreviewRenderAnalysis {
+	const blankDetection = detectBlankScreenshot(base64Data, minFileSize, minEntropy);
+	const bodyHtml = getRenderedBodyHtml(htmlContent);
+	const visibleText = stripToVisibleText(bodyHtml);
+	const emptyRootSelector = findEmptyRootSelector(bodyHtml);
+	const interactiveElementCount = countMatches(
+		bodyHtml,
+		/<(button|input|select|textarea|a)\b/gi,
+	);
+	const mediaElementCount = countMatches(
+		bodyHtml,
+		/<(canvas|svg|img|video|audio)\b/gi,
+	);
+	const meaningfulElementCount = countMatches(
+		bodyHtml,
+		/<(div|main|section|article|aside|header|footer|nav|canvas|svg|img|video|button|input|form|ul|ol|li|table|p|h[1-6])\b/gi,
+	);
+
+	const issues: string[] = [];
+	const suggestions: string[] = [];
+
+	if (blankDetection.isBlank) {
+		issues.push(`Screenshot appears blank: ${blankDetection.reason}`);
+		suggestions.push(
+			'Treat the preview as not fully rendered and inspect the app for startup crashes.',
+		);
+	}
+
+	if (emptyRootSelector) {
+		issues.push(
+			`Rendered document still contains an empty application root (${emptyRootSelector}).`,
+		);
+		suggestions.push(
+			'Inspect client-side initialization and provider setup for crashes before the app mounts.',
+		);
+	}
+
+	const hasNoMeaningfulRenderedContent =
+		visibleText.length === 0 &&
+		interactiveElementCount === 0 &&
+		mediaElementCount === 0 &&
+		meaningfulElementCount <= 1;
+
+	if (hasNoMeaningfulRenderedContent) {
+		issues.push(
+			'Rendered page contains no visible text, controls, canvas, or media elements.',
+		);
+		suggestions.push(
+			'Route this preview through debugging even if the HTTP request succeeded.',
+		);
+	}
+
+	const hasIssues = issues.length > 0;
+
+	return {
+		hasIssues,
+		issues,
+		suggestions,
+		uiCompliance: {
+			matchesBlueprint: !hasIssues,
+			deviations: issues,
+		},
+		blankScreenshotDetected: blankDetection.isBlank,
+		blankScreenshotReason: blankDetection.isBlank
+			? blankDetection.reason
+			: undefined,
+		emptyRootSelector,
+		visibleTextLength: visibleText.length,
+		interactiveElementCount,
+		mediaElementCount,
+		meaningfulElementCount,
+		shouldRetry: hasIssues,
+	};
+}
+
 export function base64ToUint8Array(base64: string): Uint8Array {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
+	const binary = atob(base64);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
 }
 
 export enum ImageType {
@@ -96,38 +238,40 @@ export enum ImageType {
 }
 
 export async function uploadImageToCloudflareImages(env: Env, image: ImageAttachment, type: ImageType, bytes?: Uint8Array): Promise<string> {
-    const url = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/images/v1`;
+	const url = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/images/v1`;
 
-    const filename = `${image.id}-${type}-${image.filename}`;
+	const filename = `${image.id}-${type}-${image.filename}`;
 
-    const data = bytes ?? base64ToUint8Array(image.base64Data!);
-    const blob = new Blob([data], { type: image.mimeType });
-    const form = new FormData();
-    form.append('file', blob, filename);
+	const data = bytes ?? base64ToUint8Array(image.base64Data!);
+	const blob = new Blob([data], { type: image.mimeType });
+	const form = new FormData();
+	form.append('file', blob, filename);
 
-    const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}` },
-        body: form,
-    });
+	const resp = await fetch(url, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}` },
+		body: form,
+	});
 
-    const json = await resp.json() as {
-        success: boolean;
-        result?: { id: string; variants?: string[] };
-        errors?: Array<{ message?: string }>;
-    };
+	const json = (await resp.json()) as {
+		success: boolean;
+		result?: { id: string; variants?: string[] };
+		errors?: Array<{ message?: string }>;
+	};
 
-    if (!resp.ok || !json.success || !json.result) {
-        const errMsg = json.errors?.map(e => e.message).join('; ') || `status ${resp.status}`;
-        throw new Error(`Cloudflare Images upload failed: ${errMsg}`);
-    }
+	if (!resp.ok || !json.success || !json.result) {
+		const errMsg =
+			json.errors?.map((e) => e.message).join('; ') ||
+			`status ${resp.status}`;
+		throw new Error(`Cloudflare Images upload failed: ${errMsg}`);
+	}
 
-    const variants = json.result.variants || [];
-    if (variants.length > 0) {
-        // Prefer first variant URL
-        return variants[0];
-    }
-    throw new Error('Cloudflare Images upload succeeded without variants');
+	const variants = json.result.variants || [];
+	if (variants.length > 0) {
+		// Prefer first variant URL
+		return variants[0];
+	}
+	throw new Error('Cloudflare Images upload succeeded without variants');
 }
 
 export function getPublicUrlForR2Image(env: Env, r2Key: string): string {

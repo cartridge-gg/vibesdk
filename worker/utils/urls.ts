@@ -22,7 +22,7 @@ export function getPreviewUrl(
 	previewURL?: string,
 	tunnelURL?: string,
 ): string {
-	return tunnelURL || previewURL || '';
+	return previewURL || tunnelURL || '';
 }
 
 /**

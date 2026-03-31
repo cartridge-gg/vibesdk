@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, forwardRef, useCallback } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { WebSocket } from 'partysocket';
+import { sendWebSocketMessage } from '../utils/websocket-helpers';
+import { getPreviewHealthIssue } from '../utils/preview-health';
 
 interface PreviewIframeProps {
     src: string;
@@ -49,7 +51,8 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 		const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 		const hasRequestedRedeployRef = useRef(false);
-        const postLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+		const postLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+		const reportedPreviewFailureRef = useRef<string | null>(null);
 		// ====================================================================
 		// Core Loading Logic
 		// ====================================================================
@@ -133,16 +136,36 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			console.log('Requesting screenshot capture');
 			
 			try {
-				webSocket.send(JSON.stringify({
-					type: 'capture_screenshot',
+				sendWebSocketMessage(webSocket, 'capture_screenshot', {
 					data: {
 						url,
 						viewport: { width: 1280, height: 720 },
 					},
-				}));
+				});
 			} catch (error) {
 				console.error('Failed to send screenshot request:', error);
 			}
+		}, [webSocket]);
+
+		const reportPreviewFailure = useCallback((url: string, reason: string, details: string[] = []) => {
+			const failureKey = `${url}:${reason}`;
+			if (reportedPreviewFailureRef.current === failureKey) {
+				return;
+			}
+
+			reportedPreviewFailureRef.current = failureKey;
+			console.warn('Preview health check failed', { url, reason, details });
+			setLoadState((prev) => ({
+				...prev,
+				status: 'error',
+				errorMessage: reason,
+			}));
+
+			sendWebSocketMessage(webSocket ?? undefined, 'preview_failed', {
+				url,
+				reason,
+				details,
+			});
 		}, [webSocket]);
 
 		/**
@@ -228,6 +251,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		const forceReload = useCallback(() => {
 			console.log('Force reloading preview');
 			hasRequestedRedeployRef.current = false;
+			reportedPreviewFailureRef.current = null;
 			
 			if (retryTimeoutRef.current) {
 				clearTimeout(retryTimeoutRef.current);
@@ -262,6 +286,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 			console.log('Preview src changed, starting load:', src);
 			hasRequestedRedeployRef.current = false;
+			reportedPreviewFailureRef.current = null;
 			
 			if (retryTimeoutRef.current) {
 				clearTimeout(retryTimeoutRef.current);
@@ -328,6 +353,40 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			};
 		}, []);
 
+		useEffect(() => {
+			if (!webSocket) {
+				return;
+			}
+
+			const activeUrl = loadState.loadedSrc;
+			if (!activeUrl) {
+				return;
+			}
+
+			const handleMessage = (event: MessageEvent<string>) => {
+				let payload: unknown;
+				try {
+					payload = JSON.parse(event.data);
+				} catch {
+					return;
+				}
+
+				const healthIssue = getPreviewHealthIssue(payload, activeUrl);
+				if (healthIssue) {
+					reportPreviewFailure(
+						activeUrl,
+						healthIssue.reason,
+						healthIssue.details,
+					);
+				}
+			};
+
+			webSocket.addEventListener('message', handleMessage);
+			return () => {
+				webSocket.removeEventListener('message', handleMessage);
+			};
+		}, [webSocket, loadState.loadedSrc, reportPreviewFailure]);
+
 		// ====================================================================
 		// Render
 		// ====================================================================
@@ -385,7 +444,9 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 							Loading Preview
 						</h3>
 						<p className="text-text-primary/70 text-sm mb-4">
-							{loadState.attempt === 0
+							{loadState.status === 'postload'
+								? 'Preview responded. Verifying that the page actually rendered...'
+								: loadState.attempt === 0
 								? 'Checking if your deployed preview is ready...'
 								: `Preview not ready yet. Retrying in ${delaySeconds}s... (attempt ${loadState.attempt}/${MAX_RETRIES})`
 							}
