@@ -16,7 +16,7 @@ const HELLO_WORLD_VITE_PACKAGE_JSON = `{
     "preview": "npm run build && vite preview --host 0.0.0.0 --port \${PORT:-8001}",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
-    "dojo:devnet": "katana --dev --http.port \${KATANA_PORT:-5050} --http.api dev,starknet --dev.no-fee --http.cors_origins '*'",
+    "dojo:devnet": "katana --dev --http.port \${KATANA_PORT:-5050} --http.api dev,starknet --dev.no-fee --http.cors_origins '*' --cartridge.paymaster",
     "dojo:build": "sozo build",
     "dojo:migrate": "sozo build && sozo migrate --rpc-url \${STARKNET_RPC_URL:-http://127.0.0.1:5050}",
     "dojo:indexer": "bash ./scripts/torii.sh",
@@ -1088,7 +1088,7 @@ wait_for_http() {
   return 1
 }
 
-katana --dev --http.port "$KATANA_PORT" --http.api dev,starknet --dev.no-fee --http.cors_origins '*' > .dojo/katana.log 2>&1 &
+katana --dev --http.port "$KATANA_PORT" --http.api dev,starknet --dev.no-fee --http.cors_origins '*' --cartridge.paymaster > .dojo/katana.log 2>&1 &
 KATANA_PID=$!
 
 wait_for_rpc
@@ -1179,7 +1179,7 @@ wait_for_http() {
   return 1
 }
 
-katana --dev --http.port "$KATANA_PORT" --http.api dev,starknet --dev.no-fee --http.cors_origins '*' > .dojo/katana-check.log 2>&1 &
+katana --dev --http.port "$KATANA_PORT" --http.api dev,starknet --dev.no-fee --http.cors_origins '*' --cartridge.paymaster > .dojo/katana-check.log 2>&1 &
 KATANA_PID=$!
 
 wait_for_rpc

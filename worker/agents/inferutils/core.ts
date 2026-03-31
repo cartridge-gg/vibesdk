@@ -24,6 +24,86 @@ import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 import { executeToolCallsWithDependencies } from './toolExecution';
 import { CompletionDetector } from './completionDetection';
 
+function shouldUseCompatibilitySchemaFormat(provider: string): boolean {
+	return provider === 'google-ai-studio';
+}
+
+function supportsReasoningEffortParameter(provider: string): boolean {
+	return provider !== 'google-ai-studio';
+}
+
+function prefersLegacyMaxTokensParameter(provider: string): boolean {
+	return provider === 'google-ai-studio';
+}
+
+function getEffectiveSchemaFormat(
+	provider: string,
+	requestedFormat?: SchemaFormat,
+	hasSchema?: boolean,
+): SchemaFormat | undefined {
+	if (requestedFormat) {
+		return requestedFormat;
+	}
+
+	if (hasSchema && shouldUseCompatibilitySchemaFormat(provider)) {
+		return 'markdown';
+	}
+
+	return undefined;
+}
+
+export function buildCompatibilityChatCompletionParams(args: {
+	provider: string;
+	modelName: string;
+	messages: OpenAI.ChatCompletionMessageParam[];
+	maxTokens: number;
+	stream: boolean;
+	temperature?: number;
+	frequency_penalty?: number;
+	reasoning_effort?: ReasoningEffort;
+	modelNonReasoning?: boolean;
+	schemaResponseFormat?: ReturnType<typeof zodResponseFormat>;
+	extraBody?: Record<string, unknown>;
+	tools?: OpenAI.ChatCompletionTool[];
+	toolChoice?: 'auto';
+}): OpenAI.ChatCompletionCreateParams {
+	const {
+		provider,
+		modelName,
+		messages,
+		maxTokens,
+		stream,
+		temperature,
+		frequency_penalty,
+		reasoning_effort,
+		modelNonReasoning,
+		schemaResponseFormat,
+		extraBody,
+		tools,
+		toolChoice,
+	} = args;
+
+	return {
+		...(schemaResponseFormat
+			? { response_format: schemaResponseFormat }
+			: {}),
+		...(extraBody ? { extra_body: extraBody } : {}),
+		...(tools ? { tools } : {}),
+		...(toolChoice ? { tool_choice: toolChoice } : {}),
+		model: modelName,
+		messages,
+		...(prefersLegacyMaxTokensParameter(provider)
+			? { max_tokens: maxTokens }
+			: { max_completion_tokens: maxTokens }),
+		stream,
+		...(supportsReasoningEffortParameter(provider) && !modelNonReasoning
+			? { reasoning_effort }
+			: {}),
+		temperature,
+		frequency_penalty,
+	};
+}
+
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
         ...message,
@@ -568,20 +648,24 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
 
+        const provider = modelConfig.provider;
+        const effectiveFormat = getEffectiveSchemaFormat(
+            provider,
+            format,
+            Boolean(schema && schemaName),
+        );
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
-        const schemaObj =
-            schema && schemaName && !format
-                ? { response_format: zodResponseFormat(schema, schemaName) }
-                : {};
+        const schemaResponseFormat =
+            schema && schemaName && !effectiveFormat
+                ? zodResponseFormat(schema, schemaName)
+                : undefined;
         const extraBody = modelName.includes('claude')? {
-                    extra_body: {
-                        thinking: {
-                            type: 'enabled',
-                            budget_tokens: claude_thinking_budget_tokens[reasoning_effort ?? 'medium'],
-                        },
+                    thinking: {
+                        type: 'enabled',
+                        budget_tokens: claude_thinking_budget_tokens[reasoning_effort ?? 'medium'],
                     },
                 }
-            : {};
+            : undefined;
 
         // Optimize messages to reduce token count
         const optimizedMessages = optimizeInputs(messages);
@@ -628,13 +712,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             messagesToPass.push(...filtered);
         }
 
-        if (format) {
+        if (effectiveFormat) {
             if (!schema || !schemaName) {
                 throw new Error('Schema and schemaName are required when using a custom format');
             }
             const formatInstructions = generateTemplateForSchema(
                 schema,
-                format,
+                effectiveFormat,
                 formatOptions,
             );
             const lastMessage = messagesToPass[messagesToPass.length - 1];
@@ -670,29 +754,27 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${modelName} using ${schema ? 'schema-aware' : 'plain'} output with ${effectiveFormat} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
-        const toolsOpts = tools ? {
-            tools: tools.map(t => {
-                return toOpenAITool(t);
-            }),
-            tool_choice: 'auto' as const
-        } : {};
+        const toolsList = tools?.map((tool) => toOpenAITool(tool));
+        const requestBody = buildCompatibilityChatCompletionParams({
+            provider,
+            modelName,
+            messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
+            maxTokens: maxTokens || 150000,
+            stream: Boolean(stream),
+            reasoning_effort,
+            modelNonReasoning: modelConfig.nonReasoning,
+            temperature,
+            frequency_penalty,
+            schemaResponseFormat,
+            extraBody,
+            tools: toolsList,
+            toolChoice: toolsList ? 'auto' : undefined,
+        });
         let response: OpenAI.ChatCompletion | OpenAI.ChatCompletionChunk | Stream<OpenAI.ChatCompletionChunk>;
         try {
-            // Call OpenAI API with proper structured output format
-            response = await client.chat.completions.create({
-                ...schemaObj,
-                ...extraBody,
-                ...toolsOpts,
-                model: modelName,
-                messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
-                max_completion_tokens: maxTokens || 150000,
-                stream: stream ? true : false,
-                reasoning_effort: modelConfig.nonReasoning ? undefined : reasoning_effort,
-                temperature,
-                frequency_penalty,
-            }, {
+            response = await client.chat.completions.create(requestBody, {
                 signal: abortSignal,
                 headers: {
                     "cf-aig-metadata": JSON.stringify({
@@ -701,7 +783,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         schemaName,
                         actionKey,
                     })
-                }
+                },
             });
             console.log(`Inference response received`);
         } catch (error) {
@@ -938,8 +1020,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         try {
             // Parse the response
-            const parsedContent = format
-                ? parseContentForSchema(content, format, schema, formatOptions)
+            const parsedContent = effectiveFormat
+                ? parseContentForSchema(
+                    content,
+                    effectiveFormat,
+                    schema,
+                    formatOptions,
+                )
                 : JSON.parse(content);
 
             // Use Zod's safeParse for proper error handling

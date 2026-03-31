@@ -25,6 +25,9 @@ describe('templates', () => {
 			'"dojo:devnet": "katana --dev --http.port ${KATANA_PORT:-5050}',
 		);
 		expect(template.allFiles['package.json']).toContain(
+			"--cartridge.paymaster",
+		);
+		expect(template.allFiles['package.json']).toContain(
 			'"dojo:check": "bash ./scripts/dojo-check.sh"',
 		);
 		expect(template.allFiles['package.json']).toContain(
@@ -140,9 +143,15 @@ describe('templates', () => {
 		expect(template.allFiles['scripts/dev.sh']).toContain(
 			'--http.port "$KATANA_PORT"',
 		);
+		expect(template.allFiles['scripts/dev.sh']).toContain(
+			'--cartridge.paymaster',
+		);
 		expect(template.allFiles['scripts/dev.sh']).toContain('torii --world');
 		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
 			'sozo migrate --rpc-url "$KATANA_RPC_URL"',
+		);
+		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
+			'--cartridge.paymaster',
 		);
 		expect(template.allFiles['scripts/dojo-check.sh']).toContain(
 			'wait_for_http "http://127.0.0.1:$TORII_PORT"',
