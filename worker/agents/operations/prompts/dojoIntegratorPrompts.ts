@@ -21,6 +21,8 @@ Convert the project's authoritative backend state to the Dojo stack with the sma
 ## Practical Implementation Rules
 - Create the minimum Cairo workspace, World models, systems, migrations/manifests, and frontend wiring needed for the requested feature set.
 - Reuse the existing app shell, auth flow, and gameplay UI wherever possible.
+- When editing \`.cairo\` files in the starter, preserve the existing working scaffold and mutate it incrementally instead of rewriting the contract shape from scratch.
+- Treat \`src/models.cairo\` and \`src/systems/actions.cairo\` as compile-sensitive files: after changing them, run a real Dojo compile or migration check before considering the task done.
 - Generate TypeScript bindings from Sozo outputs instead of hand-writing contract bindings when the project structure supports it.
 - If the current project lacks Dojo-ready Vite/WASM configuration or dependencies, add only what is strictly required.
 - Do not invent a separate backend abstraction layer that duplicates World / Torii responsibilities.
@@ -30,6 +32,7 @@ Convert the project's authoritative backend state to the Dojo stack with the sma
 
 ## Verification
 - After making file changes, prefer run_analysis first.
+- If you touched Cairo / Dojo contracts, run \`bun run dojo:build\`, \`sozo build\`, or \`bun run dojo:check\` before deploying the preview.
 - Use exec_commands for Dojo environment checks or non-destructive build steps when needed.
 - Deploy and verify the browser app after client wiring changes.
 `;

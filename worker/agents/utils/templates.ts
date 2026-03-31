@@ -639,7 +639,7 @@ export { dojoConfig };
 `;
 
 const HELLO_WORLD_VITE_DOJO_CLICKER_SHELL = `import { useAccount } from '@starknet-react/core';
-import { useEffect, useEffectEvent, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Activity, Pickaxe, Rocket, Sparkles, Zap } from 'lucide-react';
 import { ConnectWallet } from './ConnectWallet';
 import {
@@ -665,7 +665,7 @@ export function DojoClickerShell() {
   const [status, setStatus] = useState('Local Dojo stack is ready.');
   const [isPending, startTransition] = useTransition();
 
-  const refreshPlayer = useEffectEvent(async () => {
+  const refreshPlayer = useCallback(async () => {
     if (!address) {
       setPlayer(null);
       setError(null);
@@ -679,11 +679,11 @@ export function DojoClickerShell() {
     } catch (nextError) {
       setError(toErrorMessage(nextError));
     }
-  });
+  }, [address, sdk]);
 
   useEffect(() => {
     void refreshPlayer();
-  }, [address, refreshPlayer]);
+  }, [refreshPlayer]);
 
   const runAction = (action: 'spawn' | 'click' | 'buy_upgrade') => {
     if (!account) {

@@ -25,6 +25,7 @@ function runLocally(tempDir: string): void {
 	console.log('Running minimal-vite template verification on the host.');
 	run('bun', ['install'], tempDir);
 	run('bun', ['run', 'typecheck'], tempDir);
+	run('bun', ['run', 'dojo:check'], tempDir);
 	run('bun', ['run', 'build'], tempDir);
 }
 

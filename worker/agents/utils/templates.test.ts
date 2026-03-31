@@ -118,6 +118,21 @@ describe('templates', () => {
 		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
 			'A working onchain clicker baseline',
 		);
+		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
+			"useCallback, useEffect, useState, useTransition",
+		);
+		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
+			'const refreshPlayer = useCallback(async () => {',
+		);
+		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
+			'}, [address, sdk]);',
+		);
+		expect(template.allFiles['src/components/DojoClickerShell.tsx']).toContain(
+			'}, [refreshPlayer]);',
+		);
+		expect(template.allFiles['src/components/DojoClickerShell.tsx']).not.toContain(
+			'useEffectEvent',
+		);
 		expect(template.allFiles['src/components/ConnectWallet.tsx']).toContain(
 			'Connect Cartridge Controller',
 		);

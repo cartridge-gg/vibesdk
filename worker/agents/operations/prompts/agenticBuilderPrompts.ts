@@ -82,10 +82,12 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
    - On the web client, initialize dojo.js exactly once, provide it through \`DojoSdkProvider\`, keep only transient presentation/UI state local, and avoid adding a second authoritative state library.
    - Call \`dojo_integrate\` early so the Cairo workspace, contracts, client bindings, and provider wiring are established before implementing gameplay features.
    - The built-in starter already includes a working Dojo scaffold: \`Scarb.toml\`, \`dojo_dev.toml\`, \`torii_dev.toml\`, \`manifest_dev.json\`, \`src/models.cairo\`, \`src/systems/actions.cairo\`, \`src/lib/dojo.tsx\`, and Vite WASM support. Adapt those files first instead of reinstalling or recreating the stack.
+   - When editing that scaffold, change the existing Cairo incrementally instead of rewriting the contract/module structure from scratch unless the task explicitly requires it.
    - The sandbox image includes the Dojo CLI toolchain needed for local development, including \`sozo\`, \`katana\`, and \`torii\`. Do not add install commands for those tools.
    - Do not stop at schema design or “Dojo-ready” local state. The authoritative rules must be implemented in Cairo.
    - Use only public Dojo package entrypoints such as \`@dojoengine/torii-client\` and \`@dojoengine/sdk/react\`. Never deep-import package internals like \`@dojoengine/torii-client/dist/client\`.
    - Never suggest or install nonexistent Dojo packages such as \`@dojoengine/torii\`. If Torii client access is needed, use the already-installed \`@dojoengine/torii-client\`.
+   - If you touch \`.cairo\`, \`Scarb.toml\`, or Dojo manifests, you must run a real Dojo verification step such as \`bun run dojo:build\`, \`sozo build\`, or \`bun run dojo:check\` before concluding the task.
 
 10. **Commit Frequently**: Use git commit after meaningful changes to preserve history in virtual filesystem.
 

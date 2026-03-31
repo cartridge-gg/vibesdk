@@ -93,6 +93,15 @@ const SHARED_SANDBOX_PREVIEW_PORTS = Array.from(
 );
 export const DEV_SERVER_READINESS_TIMEOUT_MS = 120000;
 export const SANDBOX_DEPENDENCY_INSTALL_TIMEOUT_MS = 180000;
+const STARTUP_FATAL_PATTERNS = [
+	/could not compile `[^`]+`/i,
+	/scarb command failed/i,
+	/error:\s+script "dev" exited with code/i,
+	/\[monitor\].*process crashed/i,
+	/vite.*error/i,
+	/failed to compile/i,
+	/build failed/i,
+];
 
 function truncateLogSnippet(value: string, maxLength: number = 1200): string {
 	if (value.length <= maxLength) {
@@ -100,6 +109,54 @@ function truncateLogSnippet(value: string, maxLength: number = 1200): string {
 	}
 
 	return `${value.slice(0, maxLength)}...[truncated ${value.length - maxLength} chars]`;
+}
+
+function extractRelevantStartupLogSnippet(
+	value: string,
+	maxLines: number = 18,
+): string {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return '';
+	}
+
+	const lines = trimmed
+		.split('\n')
+		.map((line) => line.trim())
+		.filter(Boolean);
+
+	const relevantLines = lines.filter((line) => {
+		return (
+			STARTUP_FATAL_PATTERNS.some((pattern) => pattern.test(line)) ||
+			line.includes('error:') ||
+			line.includes('stderr]') ||
+			line.includes('stdout]') ||
+			line.includes('[MONITOR] Process') ||
+			line.includes('[MONITOR] Scheduling restart') ||
+			line.includes('[MONITOR] Restarting process') ||
+			line.includes('Failed to connect to 127.0.0.1 port') ||
+			line.includes('Blocking waiting for file lock') ||
+			line.includes('Compiling ')
+		);
+	});
+
+	const snippetLines =
+		relevantLines.length > 0
+			? relevantLines.slice(-maxLines)
+			: lines.slice(-maxLines);
+
+	return truncateLogSnippet(snippetLines.join('\n'));
+}
+
+function getStartupFailureReason(logs: string): string | null {
+	for (const pattern of STARTUP_FATAL_PATTERNS) {
+		const match = logs.match(pattern);
+		if (match?.[0]) {
+			return match[0];
+		}
+	}
+
+	return null;
 }
 
 function getAutoAllocatedSandbox(sessionId: string): string {
@@ -725,7 +782,11 @@ export class SandboxSdkClient extends BaseSandboxService {
 		processId: string,
 		port: number,
 		maxWaitTimeMs: number = DEV_SERVER_READINESS_TIMEOUT_MS,
-	): Promise<{ ready: boolean; lastLogSnippet: string }> {
+	): Promise<{
+		ready: boolean;
+		lastLogSnippet: string;
+		failureReason?: string;
+	}> {
 		const startTime = Date.now();
 		const pollIntervalMs = 2000;
 		const maxAttempts = Math.ceil(maxWaitTimeMs / pollIntervalMs);
@@ -776,7 +837,6 @@ export class SandboxSdkClient extends BaseSandboxService {
 					const logsResult = await this.getLogs(instanceId, true);
 
 					if (logsResult.success) {
-						console.log('sandbox logs:', logsResult.logs);
 						const logs = [
 							logsResult.logs.stdout,
 							logsResult.logs.stderr,
@@ -785,7 +845,26 @@ export class SandboxSdkClient extends BaseSandboxService {
 							.join('\n');
 
 						if (logs.length > 0) {
-							lastLogSnippet = truncateLogSnippet(logs);
+							lastLogSnippet =
+								extractRelevantStartupLogSnippet(logs);
+							const failureReason = getStartupFailureReason(logs);
+							if (failureReason) {
+								this.logger.warn(
+									'Development server failed during startup',
+									{
+										instanceId,
+										port,
+										processId,
+										failureReason,
+										lastLogSnippet,
+									},
+								);
+								return {
+									ready: false,
+									lastLogSnippet,
+									failureReason,
+								};
+							}
 						}
 
 						// Check for any readiness pattern
@@ -875,11 +954,14 @@ export class SandboxSdkClient extends BaseSandboxService {
 						instanceId,
 					});
 				} else {
+					const failurePrefix = readiness.failureReason
+						? `Development server failed before listening on port ${port}: ${readiness.failureReason}.`
+						: `Development server did not start listening on port ${port} within the readiness window.`;
 					const logContext = readiness.lastLogSnippet
-						? `\n\nRecent command logs:\n${readiness.lastLogSnippet}`
+						? `\n\nRecent sandbox logs:\n${readiness.lastLogSnippet}`
 						: '';
 					throw new Error(
-						`Development server did not start listening on port ${port} within the readiness window.${logContext}`,
+						`${failurePrefix}${logContext}`,
 					);
 				}
 			} catch (readinessError) {
@@ -1235,7 +1317,9 @@ export class SandboxSdkClient extends BaseSandboxService {
 				processId: string;
 				allocatedPort: number;
 		  }
-		| undefined
+		| {
+				error: string;
+		  }
 	> {
 		try {
 			const sandbox = this.getSandbox();
@@ -1375,7 +1459,12 @@ export class SandboxSdkClient extends BaseSandboxService {
 					return { previewURL, tunnelURL, processId, allocatedPort };
 				} catch (error) {
 					this.logger.warn('Failed to start dev server', error);
-					return undefined;
+					return {
+						error:
+							error instanceof Error
+								? error.message
+								: 'Failed to start dev server',
+					};
 				}
 			} else {
 				this.logger.warn('Failed to install dependencies', {
@@ -1385,12 +1474,16 @@ export class SandboxSdkClient extends BaseSandboxService {
 					stderr: truncateLogSnippet(installResult.stderr),
 					stdout: truncateLogSnippet(installResult.stdout),
 				});
+				return {
+					error: `Dependency installation failed for sandbox instance ${instanceId}.\n\nSTDOUT:\n${truncateLogSnippet(installResult.stdout)}\n\nSTDERR:\n${truncateLogSnippet(installResult.stderr)}`,
+				};
 			}
 		} catch (error) {
 			this.logger.warn('Failed to setup instance', error);
+			return {
+				error: error instanceof Error ? error.message : 'Failed to setup instance',
+			};
 		}
-
-		return undefined;
 	}
 
 	async createInstance(
@@ -1489,10 +1582,10 @@ export class SandboxSdkClient extends BaseSandboxService {
 				initCommand,
 				envVars,
 			);
-			if (!results) {
+			if ('error' in results) {
 				return {
 					success: false,
-					error: 'Failed to setup instance',
+					error: results.error,
 				};
 			}
 			// Store instance metadata
