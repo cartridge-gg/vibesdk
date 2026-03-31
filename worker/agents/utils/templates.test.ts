@@ -62,6 +62,7 @@ describe('templates', () => {
 		expect(template.allFiles['src/main.tsx']).toContain(
 			'<DojoProviderRoot>',
 		);
+		expect(template.allFiles['src/main.tsx']).not.toContain('StrictMode');
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'StarknetConfig',
 		);
@@ -70,6 +71,9 @@ describe('templates', () => {
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'jsonRpcProvider',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'paymasterRpcProvider',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			"getDojoServiceUrl('/__dojo/katana')",
@@ -88,6 +92,9 @@ describe('templates', () => {
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'defaultChainId: KATANA_CHAIN_ID',
+		);
+		expect(template.allFiles['src/starknet.tsx']).toContain(
+			'paymasterProvider={paymasterRpcProvider({',
 		);
 		expect(template.allFiles['src/starknet.tsx']).toContain(
 			'policies: controllerPolicies',

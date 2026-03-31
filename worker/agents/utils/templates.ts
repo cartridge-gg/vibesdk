@@ -223,21 +223,18 @@ const HELLO_WORLD_VITE_TSCONFIG_WORKER = `{
 }
 `;
 
-const HELLO_WORLD_VITE_MAIN = `import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+const HELLO_WORLD_VITE_MAIN = `import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { DojoProviderRoot } from './lib/dojo';
 import { StarknetProvider } from './starknet';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <StarknetProvider>
-      <DojoProviderRoot>
-        <App />
-      </DojoProviderRoot>
-    </StarknetProvider>
-  </StrictMode>,
+  <StarknetProvider>
+    <DojoProviderRoot>
+      <App />
+    </DojoProviderRoot>
+  </StarknetProvider>,
 );
 `;
 
@@ -248,6 +245,7 @@ import type { Chain } from '@starknet-react/chains';
 import {
   StarknetConfig,
   jsonRpcProvider,
+  paymasterRpcProvider,
 } from '@starknet-react/core';
 import manifest from '../manifest_dev.json';
 
@@ -319,7 +317,7 @@ const katana = {
   testnet: true,
   rpcUrls: {
     default: {
-      http: [],
+      http: [KATANA_RPC_URL],
     },
     public: {
       http: [KATANA_RPC_URL],
@@ -351,6 +349,9 @@ export function StarknetProvider({ children }: { children: ReactNode }) {
       chains={[katana]}
       defaultChainId={katana.id}
       provider={jsonRpcProvider({ rpc: () => ({ nodeUrl: KATANA_RPC_URL }) })}
+      paymasterProvider={paymasterRpcProvider({
+        rpc: () => ({ nodeUrl: KATANA_RPC_URL }),
+      })}
       connectors={[controllerConnector]}
     >
       {children}

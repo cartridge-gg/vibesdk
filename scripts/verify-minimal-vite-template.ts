@@ -75,7 +75,6 @@ bun run build`;
 	);
 }
 
-
 function main(): void {
 	const template = createHelloWorldViteTemplateDetails();
 	const tempDir = mkdtempSync(join(tmpdir(), 'vibesdk-minimal-vite-'));
